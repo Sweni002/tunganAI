@@ -14,6 +14,10 @@ import DataChartsColumn from "./DataChartsColumn";
 import ProfileHistoryCard, { HistoryDetailCard } from "./ProfileHistoryCard";
 import DashboardControlsBar from "./DashboardControlsBar";
 import LogoImg from '../../../assets/logo1.png';
+import PerformanceMetricsSection from "./FruitStatsGrid.jsx";
+import PerformanceMetricsSparklineCard from "./FruitStatsGrid.jsx";
+import GrapeStatCard from "./FruitStatsGrid.jsx";
+import FruitStatsGrid from "./FruitStatsGrid.jsx";
 
 const PointagePageDesktop = ({
     goHome,
@@ -163,9 +167,10 @@ const PointagePageDesktop = ({
                         minWidth: 0,
                         ...(displayedItem
                             ? {}
-                            : { maxWidth: 1300, margin: "0 auto",
-                                
-                             }),
+                            : {
+                                maxWidth: 1300, margin: "0 auto",
+
+                            }),
                     }}
                 >
                     <div
@@ -219,10 +224,12 @@ const PointagePageDesktop = ({
                         onHandleClick={handleClick}
                         onStartPointage={handleStartPointage}
                     />
+
+
                 </div>
 
-               
-               {/* Colonne détail + historique : affichée UNIQUEMENT s'il y a un item à montrer */}
+
+                {/* Colonne détail + historique : affichée UNIQUEMENT s'il y a un item à montrer */}
                 {displayedItem && (
                     <div
                         style={{
@@ -247,6 +254,19 @@ const PointagePageDesktop = ({
                     </div>
                 )}
 
+
+            </div>
+
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    width: "100%",
+                    maxWidth: displayedItem ? "100%" : 1300, // S'aligne avec la colonne caméra quand elle est seule
+                    margin: "0 auto",
+                }}
+            >
+                <FruitStatsGrid refreshKey={items.length} />
             </div>
         </div>
     );

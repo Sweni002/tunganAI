@@ -2,13 +2,14 @@ from models import db
 from sqlalchemy import Sequence, Enum
 from datetime import datetime
 import enum
+from sqlalchemy.dialects.oracle import CLOB
 
 class StatutPointage(enum.Enum):
     SUCCES = "succes"
     ERREUR = "erreur"
 
 class EtapePointage(enum.Enum):
-    VERIFICATION_MAC = "verification_mac" 
+    VERIFICATION_MAC = "verification_mac"
     COUVERTURE_VISAGE = "couverture_visage"
     ANTISPOOF = "antispoof"
     RECOGNITION = "recognition"
@@ -17,6 +18,14 @@ class EtapePointage(enum.Enum):
 class TypePointage(enum.Enum):
     ENTREE = "entree"
     SORTIE = "sortie"
+
+
+# Utilisé pour dire à SQLAlchemy de stocker/lire la VALEUR de l'enum
+# (ex: "verification_mac") plutôt que le NOM du membre (ex: "VERIFICATION_MAC"),
+# car c'est ce format qui existe déjà dans la base.
+def _enum_values(enum_cls):
+    return [e.value for e in enum_cls]
+
 
 class JournalTentativePointage(db.Model):
     __tablename__ = 'journal_tentatives_pointage'
@@ -27,9 +36,34 @@ class JournalTentativePointage(db.Model):
     idpers = db.Column(db.Integer, db.ForeignKey('personnels.idpers', ondelete='SET NULL'), nullable=True)
     role = db.Column(db.String(20), nullable=True)
 
-    etape = db.Column(Enum(EtapePointage, native_enum=False, length=30), nullable=False)
-    statut = db.Column(Enum(StatutPointage, native_enum=False, length=20), nullable=False)
-    type_pointage = db.Column(Enum(TypePointage, native_enum=False, length=10), nullable=True)  # <-- ajouté
+    etape = db.Column(
+        Enum(
+            EtapePointage,
+            native_enum=False,
+            length=30,
+            values_callable=_enum_values,
+        ),
+        nullable=False,
+    )
+    statut = db.Column(
+        Enum(
+            StatutPointage,
+            native_enum=False,
+            length=20,
+            values_callable=_enum_values,
+        ),
+        nullable=False,
+    )
+    type_pointage = db.Column(
+        Enum(
+            TypePointage,
+            native_enum=False,
+            length=10,
+            values_callable=_enum_values,
+        ),
+        nullable=True,
+    )  # <-- ajouté
+
     message = db.Column(db.String(255), nullable=False)
 
     score_face = db.Column(db.Float, nullable=True)
@@ -37,8 +71,9 @@ class JournalTentativePointage(db.Model):
 
     photo = db.Column(db.LargeBinary, nullable=True)
     mac_address = db.Column(db.String(17), nullable=True)
-    temps_ms = db.Column(db.Integer, nullable=True)  # Temps total de l'étape
-    temps_detail = db.Column(db.JSON, nullable=True)  # Détails des sous-opérations
+
+    temps_ms = db.Column(db.Float, nullable=True)
+    temps_detail = db.Column(CLOB, nullable=True)  # <-- CLOB pour Oracle
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
 
@@ -54,7 +89,7 @@ class JournalTentativePointage(db.Model):
             "score_face": self.score_face,
             "second_score": self.second_score,
             "mac_address": self.mac_address,
-             "temps_ms": self.temps_ms,
+            "temps_ms": self.temps_ms,
             "temps_detail": self.temps_detail,
             "date": self.created_at.date().isoformat(),
             "heure": self.created_at.strftime("%Hh:%M"),
