@@ -1,0 +1,595 @@
+.personnels {
+    margin-top: 30px;
+    margin-left: 70px;
+width: 93%;
+display: flex;
+flex-direction: column;
+}
+
+.break{
+    display: flex;
+    align-items: center;
+    width: 34%;
+      justify-content: space-between;
+}
+.listes h1{
+    color: #1B6979;
+    font-size: 27px;
+   
+}
+
+.listes {
+    margin-right: 10px;
+}
+.card {
+    margin-top: 40px;
+    width: 100%;
+       border-radius: 15px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+justify-content: center;
+
+  
+}
+
+.container {
+    animation: fadeIn 1s ease-in-out;
+
+    width:80%;
+    background-color:white ;
+    border-radius: 13px;
+      border: 1px solid rgba(0,0,0,0.1);
+      padding: 20px;
+      padding-left: 20px;
+      padding-right: 40px;
+      display: flex;
+      align-items:center;
+   justify-content: space-around;
+}
+
+.sary{
+    padding: 20px;
+    margin-top: 30px;
+    margin-left: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 29%;
+    height: 100%;
+}
+
+.sary img{
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+}
+
+.form {
+    margin-top: 17px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    width: 58%;
+    gap: 20px;
+ 
+}
+
+.retour {
+ 
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 22px;
+    cursor: pointer;
+    color: black;
+    margin-bottom: 15px;
+    margin-left: 15px;
+    height:57vh;
+}
+.retour i {
+    font-size: 22px;
+    
+}
+.input1 {
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+  margin-bottom: 20px;
+}
+
+.input1 label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.input1 input {
+  padding: 18px ;
+  border-radius: 8px;
+  border: 2px solid rgb(184, 180, 180);
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+
+}
+
+.input1 input:focus {
+  border: 2px solid #1B6979;
+}
+
+.inputM{
+      display: flex;
+  flex-direction: column;
+  width: 80%;
+  margin-bottom: 20px;
+}
+
+.inputM input{
+    width: 40%;
+      padding: 18px ;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+}
+
+.inputM label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.inputM input:hover{
+  border: 2px solid #1B6979;   
+}
+.inputNom {
+  display: flex;
+  align-items: center;
+  justify-content:space-between;
+  width: 80%;
+  margin-bottom: 20px;
+  gap: 25px;
+}
+
+
+.nom {
+  width: 58%;
+       display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.nom input{
+   width: 100%;
+      padding: 18px ;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+}
+
+.prenom {
+  width: 40%;
+      display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+
+
+.inputTel label{
+
+    font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+.inputTel input{
+  width: 100%;
+      padding: 18px ;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+}
+.prenom input{
+   width: 100%;
+      padding: 18px ;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+}
+
+.nom label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.prenom label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.nom input:hover{
+  border: 2px solid #1B6979;   
+}
+
+.prenom input:hover{
+  border: 2px solid #1B6979;   
+}
+
+.inputDiv {
+  display: flex;
+  flex-direction: column;
+  width: 80%; /* identique à inputM, inputMotif, etc. */
+  margin-bottom: 20px;
+}
+
+.inputTel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content:center;
+  width: 80%;
+  margin-bottom: 20px;
+}
+.inputTel input:hover{
+  border: 2px solid #1B6979;   
+}
+.inputDiv label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+.section {
+   width: 100%;
+      padding: 9px ;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.section p{
+  
+    font-size: 17px;
+    margin-left: 10px;
+}
+.errorBorder {
+  border: 2px solid red !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section:hover{
+   border: 2px solid #1B6979;  
+}
+.section i{
+  color:#1B6979;
+  font-size:16px;
+}
+
+.section p:hover{
+  color: #333;
+}
+
+.dialog {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    width: 100%;
+    height:  67px;
+     padding-left: 1px;
+    background-color: transparent;
+    border-radius: 10px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.dialog input {
+    width: 75%;
+    border: none;
+    padding: 0px;
+    font-size: 20px;
+    background-color: transparent;
+     outline: none; /* empêche la bordure orange */
+  box-shadow: none;
+    
+}
+.dialog i{
+    font-size: 23px;
+
+}
+
+.dialog:hover {
+    border: 2px solid #259eb6;
+}
+
+
+
+.resultat{
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+}
+
+.liste1{
+width: 98%;
+display: flex;
+align-items: center;
+justify-content: space-between;
+cursor: pointer;
+  margin-bottom: 30px; /* ou la valeur que tu souhaites */
+
+}
+
+.liste1:hover{
+   color: #1f7181;
+    
+}
+.liste2 h3:hover{
+   color: #1f7181; 
+}
+
+.liste2 p:hover{
+   color: #1f7181; 
+}
+.liste2{
+    display: flex;
+    flex-direction: column;
+    gap:  10px;
+    align-items: flex-start;
+    justify-content:center;
+     
+}
+.liste2 h3{
+    font-size: 19px;
+    
+}
+.liste2 p{
+
+    font-size: 18px;
+    color: gray;
+}
+
+.liste1 i{
+    font-size: 18px;
+    
+}
+.mitam{
+  width: 80%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap : 25px;
+
+}
+
+.btn{
+  width: 80%;
+  margin-top: 25px;
+}
+
+.btn button{
+  padding: 14px ;
+     width: 100%;
+    outline: none;
+    border: none;
+    overflow: hidden;
+    border-radius: 8px;
+    background-color: #1B6979;
+    box-shadow: 0 7px 7px rgba(0,0,0,0.1);
+    cursor: pointer;
+    
+}
+
+.btn  button:hover {
+    background-color: #14535f;
+    
+}
+
+.inputSary{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content:center;
+  width: 80%;
+  margin-bottom: 20px;
+}
+
+.inputSary  label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.selectedDivisionText {
+  color:black; /* gris foncé ou couleur principale */
+  font-weight: bold;
+}
+
+/* Couleur du texte quand aucune division sélectionnée */
+.placeholderText {
+  color: #999999; /* gris clair par exemple */
+  
+}
+
+.section1 {
+   width: 100%;
+      padding: 18px ;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.section1 p{
+   color: gray;
+    font-size: 17px;
+}
+
+
+.section1:hover{
+   border: 2px solid #1B6979;  
+}
+.section1 i{
+  color:#1B6979;
+  font-size:16px;
+}
+
+.section1 p:hover{
+  color: #333;
+}
+
+@media (max-width : 1400px) {
+   .personnels{
+    margin-top: 4px;
+    margin-left: 0;
+    padding-left: 20px;
+   }
+   .break{
+    width: 30%;
+  }
+ 
+  .listes h1{
+    font-size:18px;
+  }
+  .card{
+    padding: 15px;
+  }
+  .container{
+    width: 85%;
+   padding: 20px;
+  }
+  .sary{
+    width: 25%;
+    margin-top: 0;
+  }
+   .form{
+width: 70%;
+   }
+    .retour{
+    height: 95vh;
+   }
+   .retour i{
+    font-size: 17px;
+   }
+}
+
+
+.inputMotif {
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+  margin-bottom: 20px;
+}
+
+.textarea {
+  padding: 18px;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  transition: border 0.3s ease;
+}
+
+.textarea:hover,
+.textarea:focus {
+  border: 2px solid #1B6979;
+}
+
+.dateContainer {
+  display: flex;
+  gap: 25px;
+  justify-content: space-between;
+  width: 80%;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+
+.dateField {
+    cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+}
+
+.dateField input {
+  padding: 18px;
+  border-radius: 8px;
+  border: 2px solid #ccc;
+  font-size: 17px;
+  outline: none;
+  transition: border 0.3s ease;
+  cursor: pointer;
+}
+
+.dateField input:hover,
+.dateField input:focus {
+  border: 2px solid #1B6979;
+}
+
+
+.inputMotif label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+.dateField label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+
+
+
+@media (max-width: 768px) {
+  .personnels {
+    padding: 10px;
+      margin-top: 95px;
+  }
+  
+
+}

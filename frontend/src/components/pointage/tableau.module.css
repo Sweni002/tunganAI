@@ -1,0 +1,89 @@
+.personnels {
+  height: 100vh;
+  width: 100vw;
+  padding: 30px;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  animation: fadeIn 1s ease-in-out;
+
+  display: flex;
+  flex-direction: column; /* empilement vertical */
+  align-items: center;    /* centre horizontalement les cartes */
+  overflow-y: auto;
+}
+
+/* Titre aligné à gauche */
+.listes {
+  width: 100%;
+  margin-bottom: 30px;
+}
+
+.listes h1 {
+  text-align: left; /* ⚡ reste à gauche */
+  margin-left: 30px;
+  font-weight: 700;
+  color: #1e2a78;
+  font-size: 1.6rem;
+  letter-spacing: 1.2px;
+  text-shadow: 1px 1px 4px rgba(30, 42, 120, 0.3);
+}
+
+/* Flex pour les cartes */
+.flexRow {
+  display: flex;
+  justify-content: center; /* centre horizontalement les cartes */
+  gap: 30px;
+  width: 100%;
+  flex-wrap: wrap;
+  margin-bottom: 25px;
+}
+
+/* Carte */
+.card {
+  flex: 1 1 300px;
+  max-width: 800px;
+  height: 550px;
+  background: linear-gradient(145deg, #ffffff, #ffffff);
+  border-radius: 20px;
+  box-shadow:  8px 8px 15px #c7d0ff, 8px 8px 15px #ffffff;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #34418c;
+  transition: box-shadow 0.4s ease, transform 0.3s ease;
+  cursor: default;
+  user-select: none;
+}
+
+/* Hover / focus */
+.card:hover {
+  box-shadow: 12px 12px 20px #b3bcff, -12px -12px 20px #ffffff;
+  transform: translateY(-6px);
+}
+
+.card:focus {
+  outline: 2px solid #5760f3;
+  outline-offset: 4px;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive */
+@media screen and (max-width: 1024px) {
+  .flexRow { flex-direction: column; align-items: center; }
+  .card { width: 90%; height: 220px; }
+}
+
+@media screen and (max-width: 480px) {
+  .card { width: 95%; height: 200px; font-size: 1rem; }
+  .listes h1 { font-size: 1.3rem; }
+}

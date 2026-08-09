@@ -1,0 +1,210 @@
+.paddingWrapper {
+  padding: 10px 16px;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  margin-top: 95px;
+}
+
+.container {
+  background-color: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #eeeded;
+  overflow: hidden;
+  margin-bottom: 36px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.tileHeader {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.leading {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.titleSection {
+  flex: 1;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-top: 2px;
+}
+
+.gridContainer {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 16px 16px 16px;
+  gap: 8px;
+}
+
+.timeCard {
+  /* Aligne 2 colonnes par ligne */
+  flex: 0 0 calc(50% - 4px);
+  padding: 12px 6px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 85px;
+  text-align: center;
+}
+
+.timeText {
+  font-size: 13px;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
+.label {
+  font-size: 9px;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+}
+
+
+/* Conteneur principal quand on est en mode liste */
+.dateListContainer {
+  margin-bottom: 5px;
+  padding-top: 10px;
+  width: 100%;
+}
+
+/* Wrapper qui permet le scroll */
+.scrollWrapper {
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+  padding: 10px 5px;
+  scrollbar-width: none; /* Masque la scrollbar sur Firefox */
+}
+
+.scrollWrapper::-webkit-scrollbar {
+  display: none; /* Masque la scrollbar sur Chrome/Safari */
+}
+.scrollContainerRelative {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.scrollWrapper {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding: 10px 20px; /* Plus de padding pour ne pas cacher la première/dernière carte */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+}
+
+.scrollWrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollIndicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 30px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  pointer-events: none; /* Laisse passer le clic vers la liste */
+  color: #2c2c2c;
+  opacity: 0.6;
+}
+
+.leftIndicator {
+  left: 0;
+  background: linear-gradient(to right, #f8f9fa 20%, transparent);
+  justify-content: flex-start;
+}
+
+.rightIndicator {
+  right: 0;
+  background: linear-gradient(to left, #f8f9fa 20%, transparent);
+  justify-content: flex-end;
+}
+
+.dateItem {
+  flex: 0 0 auto; /* Empêche les cartes de rétrécir */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 65px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #eeeded;
+}
+
+.activeDate {
+  background-color: #2196F3;
+  border-color: #2196F3;
+}
+
+.activeDate span {
+  color: #ffffff !important;
+}
+
+.itemDay {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #757575;
+}
+
+.itemDate {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #383838;
+}
+
+.dateValue {
+  font-size: 0.85rem;
+  color: #383838;
+  font-style: italic;
+ }
+
+ /* Vos styles existants pour la date unique */
+.dateDisplay {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-top: 22px;
+  padding-left: 10px;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 180px;
+}

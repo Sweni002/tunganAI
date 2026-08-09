@@ -1,0 +1,411 @@
+import React, { useState ,useEffect} from 'react';
+import {  Table } from 'antd';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import styles from './division.module.css';
+import { EditOutlined } from '@ant-design/icons';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import Avatar from '@mui/material/Avatar';
+import { useLocation, useNavigate } from 'react-router-dom';
+import Snackbar from '@mui/material/Snackbar';
+import CloseIcon from '@mui/icons-material/Close';
+import SnackbarContent from '@mui/material/SnackbarContent';
+ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
+import { styled } from "@mui/material/styles";
+import { Spin } from "antd";
+import { Tooltip } from 'antd';
+import Link from '@mui/material/Link';
+import { CiSearch } from "react-icons/ci";
+
+
+const API_URL = import.meta.env.VITE_API_URL;
+
+const ITEM_HEIGHT = 48;
+
+const BootstrapDialog = styled(Dialog)(({ theme }) => ({
+  "& .MuiPaper-root": {
+    backgroundColor: "white",
+    borderRadius: "8px",
+    padding: theme.spacing(2),
+    width: "100%",
+    maxWidth: "400px",
+  },
+}));
+
+const Division = () => {
+  const navigate=useNavigate()
+   const navigate2=useNavigate()
+   const [divisions, setDivisions] = useState([]);
+ const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(false);
+   const [loadingSupp, setLoadingSupp] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+const location = useLocation();
+const [snackMessage, setSnackMessage] = useState('');
+const [snackError, setSnackError] = useState(false);
+const [openSnack, setOpenSnack] = useState(false);
+const [confirmOpen, setConfirmOpen] = useState(false);
+const [recordToDelete, setRecordToDelete] = useState(null);
+
+  const [selectionType] = useState('checkbox');
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuRecord, setMenuRecord] = useState(null);
+  const [searchText, setSearchText] = useState('');
+const [selectedDivision, setSelectedDivision] = useState(null);
+  const open = Boolean(menuAnchor);
+
+
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  
+  
+  const voirFicheAssiduite = (record) => {
+    console.log("Matricule :", record.matricule);
+    handleMenuClose()
+     navigate('/global/assiduite', { state: { matricule: record.matricule } });
+    // Navigate ou autre logique ici
+  }
+function formatPhoneNumber(num) {
+  if (!num) return '-';
+  // Supposons que num est une chaîne de chiffres, exemple: "0385416529"
+  // On peut insérer les espaces comme ça : "038 54 165 29"
+  return num.replace(/(\d{3})(\d{2})(\d{3})(\d{2})/, '$1 $2 $3 $4');
+}
+const filteredservices = divisions.filter(p => {
+  const lower = searchText.toLowerCase();
+
+  // Vérifie correspondance texte
+  const matchesSearch =
+    p.nomdivision.toLowerCase().includes(lower) ||
+ p.nomservice.toLowerCase().includes(lower) 
+    // Si aucune division sélectionnée, on affiche tout
+  if (!selectedDivision) return matchesSearch;
+
+  // Sinon, on filtre aussi par division
+  return matchesSearch && p.iddiv === selectedDivision;
+});
+
+  const fetchWithAuth = async (url, options = {}) => {
+    const response = await fetch(url, {
+      credentials: 'include',
+      ...options,
+    });
+
+    if (response.status === 401) {
+      navigate('/login');  // Redirige ici
+      throw new Error('Session expirée, veuillez vous reconnecter.');
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erreur inconnue');
+    }
+
+    return response.json();
+  };
+
+useEffect(() => {
+  const snackMsg = sessionStorage.getItem('snackMessage');
+  const snackErr = sessionStorage.getItem('snackError') === 'true';
+
+  if (snackMsg) {
+    setSnackMessage(snackMsg);
+    setSnackError(snackErr);
+    setOpenSnack(true);
+
+    // Nettoyage après affichage
+    sessionStorage.removeItem('snackMessage');
+    sessionStorage.removeItem('snackError');
+  }
+}, []);
+
+
+  const goAjout=()=>{
+    navigate("/global/ajout_division")
+  }
+
+
+useEffect(() => {
+    setLoading(true);
+    fetchWithAuth(`${API_URL}/api/divisions/divisions_with_service`)
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setDivisions(data);
+          console.log(data)
+          setErrorMsg(null);
+        } else if (data.error) {
+          setErrorMsg(data.error);
+          setServices([]);
+        } else {
+          setErrorMsg('Format de données inattendu');
+          setServices([]);
+        }
+      })
+      .catch((err) => {
+        setErrorMsg(err.message);
+        setServices([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+const handleDeleteClick = (record) => {
+  setRecordToDelete(record);
+  setConfirmOpen(true);
+};
+
+const handleConfirmDelete = () => {
+    setLoadingSupp(true);
+
+    if (!recordToDelete) {
+      setLoadingSupp(false);
+      return;
+    }
+console.log(recordToDelete.idserv)
+    fetchWithAuth(`${API_URL}/api/divisions/${recordToDelete.iddiv}`, {
+      method: 'DELETE',
+    })
+      .then(() => {
+        setSnackMessage("Division supprimé avec succès");
+        setSnackError(false);
+        setOpenSnack(true);
+        setDivisions((prev) => prev.filter(p => p.iddiv !== recordToDelete.iddiv));
+      })
+      .catch((err) => {
+        console.error("Erreur suppression :", err);
+        setSnackMessage(err.message || "Erreur inconnue");
+        setSnackError(true);
+        setOpenSnack(true);
+      })
+      .finally(() => {
+        setConfirmOpen(false);
+        setRecordToDelete(null);
+        setLoadingSupp(false);
+      });
+  };
+
+
+
+  const handleMenuClick = (event, record) => {
+    setMenuAnchor(event.currentTarget);
+    setSelectedRecord(record)
+    setMenuRecord(record);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+    setMenuRecord(null);
+  };
+const columns = [
+ 
+ 
+  
+    {
+      title: 'Nom',
+      dataIndex: 'nomdivision',
+      key: 'nomdivision',
+      align: "center",
+    },
+    {
+      title: 'Service',
+      dataIndex: 'nomservice',
+      key: 'nomservice',
+      align: "center",
+    },
+
+  {
+    title: '',
+    key: 'actions',
+    render: (_, record) => (
+      <div style={{ display: 'flex', width: "70%", alignItems: "center", justifyContent: "space-around" }}>
+       
+        <Tooltip title='Modifier'  >
+      
+        <div className={styles.iconCircle}      onClick={() => navigate('/global/modifier_division', { state: { record } })}    
+          >
+                    
+                
+                          
+              <IconButton
+                                aria-label="more"
+                                id="long-button"
+                                     aria-haspopup="true"
+                                size="small"
+                              >
+
+          <EditOutlined
+            style={{ color: '#1B6979', fontSize: "0.9rem" }}
+    />
+    </IconButton>
+         
+        </div>
+        </Tooltip>
+          <Tooltip title='Supprimer'  >
+        
+    
+        <div className={styles.iconCircle}    onClick={() => handleDeleteClick(record)}>
+          
+            <IconButton
+                                aria-label="more"
+                                id="long-button"
+                                     aria-haspopup="true"
+                                size="small"
+                              >
+                              
+                              <i
+            className="fa-regular fa-trash-can"
+            style={{ color: '#ff4d4f', fontSize: "0.9rem", cursor: 'pointer' }}
+                ></i>
+                </IconButton>
+            
+        </div>
+            </Tooltip>
+         </div>
+    ),
+  },
+];
+
+  const rowSelection = {
+    onChange: (selectedRowKeys, selectedRows) => {
+      console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+    },
+    getCheckboxProps: record => ({
+      disabled: false,
+      name: record.nom,
+    }),
+  };
+
+  return (
+    <div className={styles.services}>
+      <div className={styles.break}>
+    <Breadcrumbs aria-label="breadcrumb">
+        <Link underline="hover" color="inherit"  sx={{fontSize:"0.9rem"}}>
+          Division
+        </Link>
+       
+        <Typography sx={{ color: 'text.primary',fontSize:"0.9rem" }}>Liste</Typography>
+      </Breadcrumbs>
+         </div>
+·
+  
+      <div className={styles.cardTab}>
+        <div className={styles.searchBar}>
+          <button onClick={goAjout}>
+            <div className={styles.jk} style={{ display: "flex", alignItems: "center", gap: 10, color: "white", fontSize: "0.9rem" }}>
+              <i className="fa-solid fa-plus" style={{fontSize:"0.9rem"}}></i><span>Ajouter</span>
+            </div>
+          </button>
+          <div className={styles.searchB}>
+            <input type="text" placeholder='Rechercher ...' 
+              value={searchText}
+  onChange={e => setSearchText(e.target.value)}/>
+           <CiSearch  size={22}/>
+                </div>
+        </div>
+
+      <div className={`${styles.tableau} ${styles.shadowedTable}`}>
+         <Table
+             pagination={{ position: ['bottomCenter'], pageSize: 10 }} // 🔥 pagination par 10
+  
+  scroll={{ y: 540 }}
+            loading={loading}
+                rowSelection={{ type: selectionType, ...rowSelection }}
+            columns={columns}
+           dataSource={filteredservices.map(p => ({ ...p, key: p.iddiv }))}
+      rowClassName={() => styles.largeRow}
+            onHeaderRow={() => ({ className: styles.largeHeader })}
+          />
+        </div>
+      </div>
+
+      <Menu
+        id="long-menu"
+        anchorEl={menuAnchor}
+        open={open}
+        onClose={handleMenuClose}
+        PaperProps={{
+          style: {
+            maxHeight: ITEM_HEIGHT * 4.5,
+            width: '30ch',
+          },
+        }}
+        MenuListProps={{
+          'aria-labelledby': 'long-button',
+        }}
+      >
+       <MenuItem 
+       onClick={() => {
+  voirFicheAssiduite(selectedRecord); // 👈 utilisez selectedRecord
+  handleMenuClose();
+}}>
+       <i class="fa-solid fa-eye"
+                       style={{ marginRight: 12, color: '#1890ff' }} ></i> 
+                       <span style={{fontSize : 18}}>
+  Voir fiche d’assiduité
+                       </span>
+ 
+</MenuItem>
+
+      </Menu>
+      <Snackbar
+  open={openSnack}
+  autoHideDuration={4000}
+  onClose={() => setOpenSnack(false)}
+  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+>
+  <SnackbarContent
+    sx={{
+      p: 1,
+      px : 3,
+      fontSize: '0.9rem',
+      color: 'white'
+    }}
+    message={<span>{snackMessage}</span>}
+  />
+</Snackbar>
+ <BootstrapDialog
+        onClose={() => setConfirmOpen(false)}
+             aria-labelledby="customized-dialog-title"
+        open={confirmOpen}
+      >
+        
+        <div style={{margin :10 ,display  :"flex" , flexDirection :"column" ,
+          alignItems :"flex-start" ,justifyContent :"center" ,gap : 20
+        }}>
+  <h3 style={{fontSize : "0.9rem"}}>Suppression...</h3>
+ <label htmlFor="id
+     " style={{fontSize : "0.8rem" ,color :"#676767"}}>Voulez-vous vraiment supprimer cet division ?
+  
+      </label> 
+      <div  className={styles.supp}>
+        <div className={styles.supp1}>
+  <button   onClick={(()=>setConfirmOpen(false))} >Non</button>
+
+        </div>
+  <div className={styles.supp2}>
+    <button   onClick={handleConfirmDelete}
+   >          {loadingSupp ? (
+      <Spin size="small" />
+    ) : "Oui"}
+
+   </button>
+     
+  </div>
+
+      </div>
+        </div>
+    
+        </BootstrapDialog>
+
+
+    </div>
+  );
+};
+
+export default Division;

@@ -1,0 +1,290 @@
+.services {
+    margin-top: 10px;
+   
+ align-items: center;
+ justify-content: center;
+width: 100%;
+display: flex;
+
+flex-direction: column;
+
+}
+
+.break{
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 90%;
+        justify-content: flex-start;
+  
+}
+
+.listes h1{
+    color: rgb(49, 47, 47);
+    font-size: 26px;
+     
+}
+.shadowedTable {
+   border-radius: 12px;
+  overflow: visible;
+  width: 100%;
+
+  height: auto;
+  background-color: white;
+  padding: 16px;
+    animation: fadeIn 1s ease-in-out;
+
+}
+
+.listes {
+    margin-right: 10px;
+}
+
+
+
+.btn1{
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    width: 15%;
+    background-color: transparent;
+    padding: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+     transition: all 0.3s ease-in-out; /* transition fluide pour tous les effets */
+
+}
+.btn1 h2{
+    font-size: 18px;
+    color: #676767;
+     transition: color 0.3s ease-in-out; /* transition de couleur du texte */
+
+}
+.btn1:hover h2{
+    color: #1f7181; /* changement de couleur texte au survol */
+}
+.btn1:hover{
+    background-color: rgba(234, 241, 241, 0.6); /* hover plus visible */
+    transform: translateY(-3px) scale(1.03); /* effet “lift” et léger zoom */
+    box-shadow: 0 5px 10px rgba(0,0,0,0.15); /* ombre pour effet flottant */
+}
+.chiffre {
+    width: 40px;
+    padding: 10px;
+    background-color:  #DAE4E6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+}
+
+.chiffre h2{
+    color: #4C8995;
+    font-weight: bold;
+    font-size: 19px;
+
+}
+
+ 
+.cardTab {
+    margin-top: 10px;
+     width: 100%;
+     max-width: 1350px;
+     background-color: white;
+     border: 1px solid rgba(0,0,0,0.1);
+     border-radius: 10px;
+     padding: 10px;
+   display: flex;
+   flex-direction: column;
+align-items: flex-start;
+
+}
+
+.searchBar {
+    display: flex;
+    padding: 15px;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+}
+.searchBar button {
+ padding: 7px 25px 7px 25px;
+  outline: none;
+  border: none;
+  border-radius: 4px;
+  background-color: #1b6979;
+  box-shadow: 0 7px 7px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease; /* transition pour hover et box-shadow */
+}
+
+/* effet au hover */
+.searchBar button:hover {
+  background-color: #14535f;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25); /* glow plus marqué */
+}
+
+/* effet de “retour” quand la souris quitte */
+.searchBar button:active,
+.searchBar button:not(:hover) {
+  box-shadow: 0 7px 7px rgba(0,0,0,0.1); /* retourne à l’état normal */
+}
+
+
+.searchB {
+    width: 22%;
+    background-color: #e7edee;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    padding: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 20px;
+    margin-right: 45px;
+}
+
+.searchB input {
+    font-size: 0.9rem;
+    border: none;
+    background-color: transparent;
+     outline: none; 
+  box-shadow: none;
+  padding: 5px;
+  width: 78%;
+  color:  #676767;
+}
+
+.searchB i{
+    padding-right: 15px;
+    color: #14535f;
+    font-size: 1.1rem;
+}
+
+.searchB:hover{
+    border: 1px solid  #14535f;
+}
+
+.tableau {
+    margin-top: 4px;
+    width: 100%;
+       height: 100%;
+    user-select: none;
+}
+
+.largeRow {
+  font-size: 0.9rem;
+  height: 60px;
+}
+
+.largeRow td {
+  padding: 20px !important;
+  cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.largeHeader th {
+    text-transform: uppercase;
+  font-size: 0.8rem;
+  padding: 20px !important;
+}
+
+/* personnels.module.css */
+.iconCircle {
+  background-color: white;
+  border-radius: 50%;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+.iconCircles {
+  background-color: white;
+  border-radius: 50%;
+  padding: 11px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.iconCircle:hover {
+  transform: scale(1.2);
+}
+.iconCircles:hover {
+  transform: scale(1.2);
+}
+
+
+.supp{
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+width: 100%;
+justify-content: flex-end;
+gap: 20px;
+
+
+}
+.supp1 button{
+  border:  none;
+  overflow: hidden;
+  padding: 15px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  background-color: transparent;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.supp1 button:hover{
+ background-color: #e4f4f7;
+}
+
+.supp2 button{
+    border:  none;
+  overflow: hidden;
+  padding: 17px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  background-color:transparent;
+  font-weight: bold;
+  cursor: pointer;
+  color:#4C8995;
+     transition: opacity 0.2s ease;
+}
+
+.supp2 button:hover{
+  background-color: #e4f4f7;
+}
+
+.supp2 button:active {
+  opacity: 0.6;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+
+@media (max-width: 768px) {
+  .personnels {
+    padding: 10px;
+      margin-top: 95px;
+  }
+  
+
+}

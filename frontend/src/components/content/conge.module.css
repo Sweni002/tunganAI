@@ -1,0 +1,538 @@
+.personnels {
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.break {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 90%;
+  justify-content: flex-start;
+}
+
+.shadowedTable {
+
+  border-radius: 12px;
+  overflow: visible;
+  height: auto;
+  background-color: white;
+  padding: 16px;
+  animation: fadeIn 1s ease-in-out;
+}
+
+.listes {
+  margin-right: 10px;
+}
+
+.cardDivision {
+  animation: fadeIn 1s ease-in-out;
+  margin-top: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  display: flex;
+  width: 100%;
+  background-color: #f5f9fa;
+  border-color: #1b6979;
+  border-radius: 25px;
+  box-shadow: 0 2px 2px #e0f9fe;
+  padding: 10px;
+  user-select: none;
+}
+
+.btn1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 15%;
+  background-color: transparent;
+  padding: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn1 h2 {
+  font-size: 18px;
+  color: #676767;
+}
+
+.btn1:hover {
+  background-color: rgba(234, 241, 241, 0.432);
+}
+.chiffre {
+  width: 40px;
+  padding: 10px;
+  background-color: #dae4e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+}
+
+.chiffre h2 {
+  color: #4c8995;
+  font-weight: bold;
+  font-size: 19px;
+}
+
+.cardTab {
+  margin-top: 5px;
+  width: 100%;
+   max-width: 1700px;
+  background-color: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.searchBar {
+  display: flex;
+  padding: 15px;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+}
+.bbt button {
+  padding: 7px 25px 7px 25px;
+  outline: none;
+  border: none;
+  border-radius: 4px;
+  background-color: #1b6979;
+  box-shadow: 0 7px 7px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease; /* transition pour hover et box-shadow */
+}
+
+/* effet au hover */
+.bbt button:hover {
+  background-color: #14535f;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25); /* glow plus marqué */
+}
+
+/* effet de “retour” quand la souris quitte */
+.bbt button:active,
+.bbt button:not(:hover) {
+  box-shadow: 0 7px 7px rgba(0,0,0,0.1); /* retourne à l’état normal */
+}
+
+
+.searchB {
+  width: 22%;
+  background-color: #e7edee;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  padding: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 20px;
+  margin-right: 35px;
+}
+
+.searchB input {
+  font-size: 0.75rem;
+  border: none;
+  background-color: transparent;
+  outline: none;
+  box-shadow: none;
+  padding: 7px;
+  width: 78%;
+  color: #676767;
+}
+
+.searchB i {
+  padding-right: 15px;
+  color: #14535f;
+  font-size: 1.0rem;
+}
+
+.searchB:hover {
+  border: 1px solid #14535f;
+}
+
+.tableau {
+  margin-top: 5px;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+
+.largeRow {
+  font-size: 0.7rem;
+  height: 60px;
+}
+
+.largeRow td {
+  padding: 20px !important;
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+
+.largeHeader th {
+  font-size: 0.75rem;
+  padding: 20px !important;
+}
+
+/* personnels.module.css */
+.iconCircle {
+  background-color: white;
+  border-radius: 50%;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+.iconCircles {
+  background-color: white;
+  border-radius: 50%;
+  padding: 11px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.iconCircle:hover {
+  transform: scale(1.2);
+}
+.iconCircles:hover {
+  transform: scale(1.2);
+}
+
+.supp {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: flex-end;
+  gap: 20px;
+}
+.supp1 button {
+  border: none;
+  overflow: hidden;
+  padding: 15px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  background-color: transparent;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.supp1 button:hover {
+  background-color: #e4f4f7;
+}
+
+.supp2 button {
+  border: none;
+  overflow: hidden;
+  padding: 17px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  background-color: transparent;
+  font-weight: bold;
+  cursor: pointer;
+  color: #4c8995;
+  transition: opacity 0.2s ease;
+}
+.shadowedTable {
+  height: auto;
+}
+
+.supp2 button:hover {
+  background-color: #e4f4f7;
+}
+
+.supp2 button:active {
+  opacity: 0.6;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+
+.liste1{
+width: 100%;
+display: flex;
+align-items: center;
+justify-content: space-between;
+cursor: pointer;
+  margin-bottom: 30px; /* ou la valeur que tu souhaites */
+  transition: border 0.3s ease;
+padding: 7px;
+}
+
+.liste1:hover{
+     background-color: rgb(234, 238, 238);
+   border-radius: 4px; 
+}
+.liste2 h3:hover{
+   color: #1f7181; 
+}
+
+.liste2 p:hover{
+   color: #1f7181; 
+}
+.liste2{
+    display: flex;
+    flex-direction: column;
+    gap:  10px;
+    align-items: flex-start;
+    justify-content:center;
+     
+}
+.liste2 h4{
+  text-align: center;
+    font-size: 0.85rem;
+    
+}
+.liste2 p{
+
+    font-size: 0.8rem;
+    color: gray;
+}
+
+.liste1 i{
+    font-size: 0.8rem;
+    
+}
+.mitam{
+  width: 80%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap : 25px;
+
+}
+
+
+.filtreContainer {
+  width: 100%;
+
+  margin-top: 45px;
+  margin-bottom: 14px;
+   display: flex;
+  align-items: center;
+  justify-content: center; /* <-- ici */
+  flex-wrap: nowrap; /* ou wrap selon besoin */
+  animation: fadeIn 1s ease-in-out;
+}
+
+.champ{
+      display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 10px;
+  
+    }
+
+    .champ label{
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+
+
+
+.loader {
+  width: 32px;
+  height: 32px;
+  border: 5px dotted #1b6979; /* couleur visible */
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  box-sizing: border-box;
+  animation: rotation 1.2s linear infinite;
+}
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+} 
+
+
+
+.filtreGroup {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  justify-content: space-between; /* espace entre les filtres */
+  flex-wrap: wrap;
+  align-items: center;
+    max-width: 1600px;
+  
+}
+
+.filtreItem {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.filtreLabel {
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: #676767;
+}
+
+.filtreInput {
+  cursor: pointer;
+  padding: 17px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  min-width: 160px;
+  font-size: 15px;
+  user-select: none;
+}
+
+.filtreInput:hover {
+  border: 1px solid #14535f;
+}
+.btnExport {
+  font-weight: bold;
+  font-size: 16px;
+  border: none;
+  letter-spacing: 1px;
+  padding: 16px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+  background-color: #1b6979;
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  transition: background-color 0.3s ease;
+}
+
+.btnExport:hover {
+  background-color: #15545a;
+}
+
+.btnFiltre {
+    font-weight: bold;
+  font-size: 0.75rem;
+  border: none;
+  width: 120px;
+ padding: 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  color: white;
+  background-color: #1b6979;
+  transition: background-color 0.3s ease;
+}
+
+.btnFiltre:hover {
+  background-color: #15545a;
+}
+
+.btnReset {
+  margin-top: 38px;
+  font-weight: bold;
+  font-size: 16px;
+  border: none;
+  padding: 16px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: #ccc;
+  color: #333;
+  transition: background-color 0.3s ease;
+}
+
+.btnReset:hover {
+  background-color: #aaa;
+}
+
+.trier {
+  animation: fadeIn 1s ease-in-out;
+
+  display: flex;
+}
+.triers button {
+  background-color: transparent;
+  border: 1px solid #2dac60;
+  box-shadow: none;
+  width: 210px;
+  padding: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn10 {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.triers span {
+  font-size: 18px;
+  color: #2dac60;
+  letter-spacing: 0.4px;
+}
+
+.triers i {
+  font-size: 18px;
+  color: #2dac60;
+}
+
+/* Hover : amélioration UX */
+.triers button:hover {
+  transform: translateY(-1px); /* petit soulèvement */
+}
+
+.debuts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+
+  cursor: pointer;
+  gap: 25px;
+}
+
+.flexible {
+  width: 25%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 10px;
+}
+
+.flexible button{
+  box-shadow:none;
+}
+
+
+
+@media (max-width: 768px) {
+  .personnels {
+    padding: 10px;
+      margin-top: 95px;
+  }
+  
+
+}

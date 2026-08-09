@@ -1,0 +1,10 @@
+###
+POST https://127.0.0.1:5000/api/admins/  
+Content-Type: application/json
+
+{
+  "matricule": "329021",
+  "nom": "Miandralitina",
+  "email": "miandralitina@gmail.com",
+  "mot_de_passe": "123454678"
+}

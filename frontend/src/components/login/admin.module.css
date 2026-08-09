@@ -1,0 +1,763 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+* {
+    padding: 0;
+    margin: 0;
+  font-family: "Poppins", sans-serif;
+  box-sizing: border-box;
+}
+
+.loginH {
+  background-color: transparent;
+  display: flex;
+  width: 100%;
+max-width: 90%;
+  align-items: center;
+  align-items: center;
+  justify-content: flex-start;
+}
+.login1 {
+margin-top: 30px;
+   width: 77px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.login1 img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+.container {
+  flex-direction: column;
+  display: flex;
+  align-items: center; /* centre verticalement */
+  justify-content: center; /* centre horizontalement */
+  gap: 45px;
+   width: 100%; /* prend toute la largeur de la fenêtre */
+  box-sizing: border-box; /* au cas où padding/margin */
+}
+
+.contentLogin {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 15px;
+}
+.contentLogin p {
+  font-size: "1.0rem";
+  color: #adacac;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.7); /* Contour sombre pour plus de contraste */
+}
+
+.contentLogin h1 {
+  color: #259eb6;
+
+  font-size: 60px;
+  letter-spacing: 3px; /* % remplacé par px (plus approprié ici) */ /* Met le texte en majuscules */
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7); /* Contour sombre pour plus de contraste */
+}
+
+.card {
+  width: 100%;
+
+  max-width: 920px;
+  background-color: white;
+  animation: fadeIn 1s ease-in-out;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cards {
+  padding: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 25px;
+  margin-top:5px;
+  width: 100%;
+}
+
+.gauche {
+  width: 55%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.droite {
+  width: 55%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-direction: column;
+   
+  gap: 15px;
+}
+
+.left {
+  font-family: "Poppins", sans-serif;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.left h2 {
+  font-family: "Poppins", sans-serif;
+
+  color: rgb(27, 82, 114);
+  font-size: 1.6rem;
+  letter-spacing: 1px;
+}
+
+.left span {
+  color: gray;
+  font-size: 1.1rem;
+  font-family: "Poppins", sans-serif;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-top: 5px;
+}
+
+.input1 {
+  width: 100%;
+}
+.oublie p {
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  color: rgb(59, 130, 211);
+}
+
+.oublie p:hover {
+  color: #1b6979;
+  text-decoration: underline;
+}
+.oublie {
+  margin-left: 15px;
+
+  text-align: left;
+  margin-top: 12px;
+  font-size: 14px;
+  color: #1b6979;
+  cursor: pointer;
+}
+
+.scan p {
+  font-size: 18px;
+  color: rgb(59, 130, 211);
+  font-weight: bold;
+}
+
+.scan p:hover {
+  color: #1b6979;
+  text-decoration: underline;
+}
+.scan {
+  margin-right: 10px;
+
+  text-align: center;
+  margin-top: 22px;
+  cursor: pointer;
+}
+.btn {
+  width: 100%;
+  margin-top: 30px;
+}
+.btn6 {
+  width: 100%;
+  margin-top: 30px;
+}
+
+.imgAcc {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+.imgAcc img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+/* Supprimer le fond jaune/orange de l'autofill du navigateur */
+input:-webkit-autofill {
+  box-shadow: 0 0 0 1000px white inset !important;
+  -webkit-text-fill-color: black !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.creation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 20px 0 10px 0;
+  padding: 12px 20px;
+  background-color: #f0f8fa; /* fond clair et doux */
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.creation:hover {
+  background-color: #e0f2f7; /* léger effet hover */
+  transform: translateY(-2px); /* petit effet de levée */
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.creation h3 {
+  font-size: 16px;
+  color: #1b6979;
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.creation h3 a {
+  color: #ff7f50; /* couleur du lien plus vive */
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 5px;
+  transition: color 0.3s ease;
+}
+
+.creation h3 a:hover {
+  color: #e0553d; /* couleur au survol */
+  text-decoration: underline;
+}
+
+.lotties {
+  display: flex;
+  flex-direction: column;
+ 
+  align-items: center;
+  justify-content: center;
+}
+
+
+.jsonLott {
+  width: 300px;
+  height: 200px;
+}
+
+.jsonLotts {
+  width: 200px;
+  height: 200px;
+}
+
+.merci {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+ width: 100%;
+ max-width: 100%;
+  margin-top: 35px;
+}
+
+.merci h2 {
+  font-family: "Poppins", sans-serif;
+
+  font-size: 1.4rem;
+}
+
+.merci label {
+  font-family: "Poppins", sans-serif;
+margin-top: 10px;
+  font-size: 1rem;
+  color: gray;
+  text-align: center;
+}
+
+.faire {
+  width: 100%;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 888px;
+}
+
+.enbas {
+  width: 100%;
+}
+
+.leftPanel {
+  flex: 1; /* 50% chacun */
+  min-width: 0; /* essentiel pour que flex shrink fonctionne */
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+}
+.rightPanel {
+  width: 100%;
+  max-width: 830px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  justify-content: center;
+  background-color: black;
+}
+.rightPanel .webcam {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.rightPanel .infoLabel {
+  position: absolute;
+  top: 20px; /* laisse de la place pour le bouton */
+  width: 100%;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(0, 0, 0, 0.4);
+  color: white;
+  padding: 20px;
+  font-size: 16px;
+}
+.rightPanel .startButtonContainer {
+  position: absolute;
+  bottom: 0px;
+  width: 100%;
+  display: flex;
+  justify-content: center; /* centrer horizontalement */
+  gap: 0px; /* espacement entre icônes */
+  margin-top: 20px;
+  justify-content: space-between;
+  background-color: rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+.rightPanel .startButton {
+  font-size: 16px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  text-transform: none;
+}
+.loginWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+
+}
+.rightPanel h1 {
+  font-size: 50px;
+  color: #1b6979;
+}
+.logo img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  margin-bottom: 20px;
+}
+.scan p {
+  font-size: 18px;
+  color: rgb(59, 130, 211);
+  font-weight: bold;
+}
+.scan p:hover {
+  color: #1b6979;
+  text-decoration: underline;
+}
+.scan {
+  margin-right: 10px;
+  text-align: center;
+  margin-top: 22px;
+  cursor: pointer;
+}
+.btn {
+  width: 100%;
+  margin-top: 30px;
+  margin-bottom: 5px;
+}
+.btn6 {
+  width: 100%;
+  margin-top: 30px;
+}
+.imgAcc {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+.imgAcc img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+} /* Supprimer le fond jaune/orange de l'autofill du navigateur */
+input:-webkit-autofill {
+  box-shadow: 0 0 0 1000px white inset !important;
+  -webkit-text-fill-color: black !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.creation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 20px 0 10px 0;
+  padding: 12px 20px;
+  background-color: #f0f8fa; /* fond clair et doux */
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+.creation:hover {
+  background-color: #e0f2f7; /* léger effet hover */
+  transform: translateY(-2px); /* petit effet de levée */
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+.creation h3 {
+  font-size: 16px;
+  color: #1b6979;
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+.creation h3 a {
+  color: #ff7f50; /* couleur du lien plus vive */
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 5px;
+  transition: color 0.3s ease;
+}
+.creation h3 a:hover {
+  color: #e0553d; /* couleur au survol */
+  text-decoration: underline;
+}
+.supp {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: flex-end;
+  gap: 20px;
+}
+.supp1 button {
+  border: none;
+  overflow: hidden;
+  padding: 15px;
+  font-size: 17px;
+  border-radius: 50%;
+  background-color: transparent;
+  font-weight: bold;
+  cursor: pointer;
+}
+.supp1 button:hover {
+  background-color: #e4f4f7;
+}
+.supp2 button {
+  border: none;
+  overflow: hidden;
+  padding: 17px;
+  font-size: 18px;
+  border-radius: 50%;
+  background-color: transparent;
+  font-weight: bold;
+  cursor: pointer;
+  color: #4c8995;
+  transition: opacity 0.2s ease;
+}
+.supp2 button:hover {
+  background-color: #e4f4f7;
+}
+.supp2 button:active {
+  opacity: 0.6;
+}
+.iconButtons {
+  height: 100%;
+  display: flex; /* espace entre chaque bouton */
+  justify-content: center;
+  align-items: center;
+}
+.actives {
+  cursor: pointer;
+  padding: 15px;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* toujours transparent au départ */ /* optionnel : pour arrondir un peu */
+  transition: background-color 0.3s ease;
+}
+.actives i {
+  font-size: 25px;
+}
+.actives:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* effet léger au survol */
+}
+.actives.active {
+  background-color: white; /* fond vert clair quand actif */
+}
+.leftGroup {
+   font-family: "Poppins", sans-serif;
+  flex: 0.3;
+  display: flex;
+  justify-content: space-between; /* espace entre Entrée et Sortie */
+}
+.centerGroup {
+  flex: 0.7;
+  display: flex;
+  justify-content: center;
+  flex: 1;
+}
+.demarrer {
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* toujours transparent au départ */ /* optionnel : pour arrondir un peu */
+  transition: background-color 0.3s ease;
+}
+@keyframes dots {
+  0% {
+    content: "";
+  }
+  33% {
+    content: ".";
+  }
+  66% {
+    content: "..";
+  }
+  100% {
+    content: "...";
+  }
+}
+.loadingDots::after {
+  content: "";
+  animation: dots 1s steps(3, end) infinite;
+}
+@media (max-width: 1300px) {
+  .rightPanel {
+    display: none;
+  }
+}
+.signup {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-top: 15px;
+  font-size: 17px;
+  color: #555;
+}
+.signup a {
+  color: rgb(51, 94, 143);
+  text-decoration: none;
+  font-weight: bold;
+  margin-left: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+.signup a:hover {
+  text-decoration: underline;
+}
+.divider {
+  margin: 12px 0;
+  border: none;
+  height: 1px;
+  background-color: #ccc;
+  width: 100%;
+}
+
+.overlayTop,
+.overlayBottom,
+.overlayLeft,
+.overlayRight {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 5;
+}
+.overlayTop {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 14%; /* correspond à top du scannerFrame */
+}
+.overlayBottom {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 16%; /* correspond à bottom vide */
+}
+.overlayLeft {
+  top: 14%;
+  left: 0;
+  width: 16%;
+  height: 70%;
+}
+.overlayRight {
+  top: 14%;
+  right: 0;
+  width: 14%;
+  height: 70%;
+}
+.corner {
+  position: absolute; /* IMPORTANT */
+}
+
+
+
+
+/* Base pour tous les coins */
+.scannerFrame .corner {
+  border-radius: 8px; /* arrondi harmonieux */
+}
+
+/* coins haut-gauche */
+.scannerFrame .corner.tl_horizontal {
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 3px;
+  background-color: red;
+  border-top-left-radius: 12px; /* arrondi plus visible */
+}
+
+.scannerFrame .corner.tl_vertical {
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 30px;
+  background-color: red;
+  border-top-left-radius: 12px;
+}
+
+/* coins haut-droit */
+.scannerFrame .corner.tr_horizontal {
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 3px;
+  background-color: blue;
+  border-top-right-radius: 12px;
+}
+
+.scannerFrame .corner.tr_vertical {
+  top: 0;
+  right: 0;
+  width: 3px;
+  height: 30px;
+  background-color: blue;
+  border-top-right-radius: 12px;
+}
+
+/* coins bas-gauche */
+.scannerFrame .corner.bl_horizontal {
+  bottom: 0;
+  left: 0;
+  width: 30px;
+  height: 3px;
+  background-color: green;
+  border-bottom-left-radius: 12px;
+}
+
+.scannerFrame .corner.bl_vertical {
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  height: 30px;
+  background-color: green;
+  border-bottom-left-radius: 12px;
+}
+
+/* coins bas-droit */
+.scannerFrame .corner.br_horizontal {
+  bottom: 0;
+  right: 0;
+  width: 30px;
+  height: 3px;
+  background-color: yellow;
+  border-bottom-right-radius: 12px;
+}
+
+.scannerFrame .corner.br_vertical {
+  bottom: 0;
+  right: 0;
+  width: 3px;
+  height: 30px;
+  background-color: yellow;
+  border-bottom-right-radius: 12px;
+}
+
+.infoLabel,
+.startButtonContainer {
+  position: relative; /* si pas déjà positionné */
+  z-index: 2; /* plus grand que l'overlay */
+}
+
+.scannerFrame,
+.infoLabel,
+.startButtonContainer {
+  position: relative;
+  z-index: 10; /* supérieur à 5 des overlays */
+}
+
+
+.scannerFrame {
+  position: absolute;
+  top: 14%;     /* même valeur que overlayTop */
+  bottom: 16%;  /* même valeur que overlayBottom */
+  left: 16%;    /* même valeur que overlayLeft */
+  right: 14%;   /* même valeur que overlayRight */
+  z-index: 10;
+}
+
+
+.scanLine {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, cyan, transparent);
+  animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+  0% { transform: translateY(-120px); opacity: 0.5; }
+  50% { transform: translateY(120px); opacity: 1; }
+  100% { transform: translateY(-120px); opacity: 0.5; }
+}
