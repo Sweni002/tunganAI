@@ -2,6 +2,7 @@ from models import db
 from sqlalchemy import Sequence, Enum
 from datetime import datetime
 import enum
+from sqlalchemy.dialects.oracle import CLOB
 
 class StatutPointage(enum.Enum):
     SUCCES = "succes"
@@ -37,8 +38,10 @@ class JournalTentativePointage(db.Model):
 
     photo = db.Column(db.LargeBinary, nullable=True)
     mac_address = db.Column(db.String(17), nullable=True)
-    temps_ms = db.Column(db.Integer, nullable=True)  # Temps total de l'étape
-    temps_detail = db.Column(db.JSON, nullable=True)  # Détails des sous-opérations
+    
+    temps_ms = db.Column(db.Float, nullable=True)
+    temps_detail = db.Column(CLOB, nullable=True)  # <-- CLOB pour Oracle
+
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
 
