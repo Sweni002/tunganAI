@@ -21,8 +21,8 @@ const PORT = 17532;
 
 // Origines autorisées à interroger l'agent (adapter selon vos environnements).
 const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5173",
   // Ajouter ici l'origine de prod, ex: "https://pointage.srsp.mg"
 ];
 

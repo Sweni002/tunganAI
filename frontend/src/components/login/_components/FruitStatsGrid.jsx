@@ -1,36 +1,7 @@
 import React from "react";
+import { useRecentPerformance } from "../services/useRecentPerformance";
 
-// Exemple de données
-const grapeData = [
-  { timeMs: 0, value: 62 },
-  { timeMs: 100, value: 95 },
-  { timeMs: 200, value: 125 },
-  { timeMs: 300, value: 110 },
-  { timeMs: 400, value: 85 },
-  { timeMs: 500, value: 90 },
-  { timeMs: 600, value: 125 },
-  { timeMs: 700, value: 135 },
-  { timeMs: 800, value: 100 },
-  { timeMs: 900, value: 80 },
-  { timeMs: 1000, value: 110 },
-  { timeMs: 1100, value: 125 },
-  { timeMs: 1200, value: 224 },
-];
 
-const bananaData = [
-  { timeMs: 0, value: 180 },
-  { timeMs: 100, value: 190 },
-  { timeMs: 200, value: 178 },
-  { timeMs: 300, value: 182 },
-  { timeMs: 400, value: 180 },
-  { timeMs: 500, value: 185 },
-  { timeMs: 600, value: 175 },
-  { timeMs: 700, value: 180 },
-  { timeMs: 800, value: 172 },
-  { timeMs: 900, value: 181 },
-  { timeMs: 1000, value: 175 },
-  { timeMs: 1100, value: 178 },
-];
 
 // Card avec Graphique Temporel (Courbe SVG)
 export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
@@ -52,7 +23,7 @@ export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
   const height = 140; // Hauteur du graphique augmentée (au lieu de 90)
 
   const points = values.map((val, index) => {
-    const x = (index / (values.length - 1)) * width;
+   const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width;
     const y = height - ((val - yMinDomain) / (yMaxDomain - yMinDomain)) * height;
     return { x, y, value: val };
   });
@@ -82,11 +53,13 @@ export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
     >
       <div
         style={{
-          color: "#e8f6f8",
-          fontSize: 16,
-          fontWeight: 600,
-          marginBottom: 20,
-          fontFamily: "'Roboto Mono', monospace",
+        color: "#8da8be",
+            fontFamily: "'Roboto Mono', monospace",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            letterSpacing: "1.2px",
+            textTransform: "uppercase",
+            marginBottom:25
         }}
       >
         {title}
@@ -220,11 +193,13 @@ export const CircularStatCard = ({
       {/* Titre */}
       <div
         style={{
-          color: "#e8f6f8",
-          fontSize: 16,
-          fontWeight: 600,
-          marginBottom: 20,
-          fontFamily: "'Roboto Mono', monospace",
+           color: "#8da8be",
+            fontFamily: "'Roboto Mono', monospace",
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            letterSpacing: "1.2px",
+            textTransform: "uppercase",
+            marginBottom:25
         }}
       >
         {title}
@@ -305,7 +280,9 @@ export const CircularStatCard = ({
   );
 };
 
-const FruitStatsGrid = () => {
+
+// Composant Skeleton reproduisant la grille à 2 colonnes (60% / 40%)
+const FruitStatsGridSkeleton = () => {
   return (
     <div
       style={{
@@ -315,23 +292,123 @@ const FruitStatsGrid = () => {
         marginTop: 18,
         flexWrap: "wrap",
         boxSizing: "border-box",
-        alignItems: "stretch", // Garantit que les deux colonnes ont la même hauteur
+        alignItems: "stretch",
+      }}
+    >
+      {/* Animation d'impulsion pour l'effet Skeleton */}
+      <style>{`
+        @keyframes skeletonPulse {
+          0%, 100% { opacity: 0.25; }
+          50% { opacity: 0.5; }
+        }
+        .skeleton-block {
+          background-color: rgba(255, 255, 255, 0.12);
+          border-radius: 6px;
+          animation: skeletonPulse 1.5s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* Carte Skeleton Gauche (60%) */}
+      <div
+        style={{
+          flex: "1 1 calc(60% - 8px)",
+          minWidth: 300,
+          backgroundColor: "rgba(255, 255, 255, 0.04)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: 12,
+          padding: 20,
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+        }}
+      >
+        {/* En-tête */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="skeleton-block" style={{ width: "50%", height: 16 }} />
+          <div className="skeleton-block" style={{ width: "20%", height: 14 }} />
+        </div>
+        {/* Zone Graphique */}
+        <div className="skeleton-block" style={{ width: "100%", height: 120, borderRadius: 8 }} />
+      </div>
+
+      {/* Carte Skeleton Droite (40%) */}
+      <div
+        style={{
+          flex: "1 1 calc(40% - 8px)",
+          minWidth: 250,
+          backgroundColor: "rgba(255, 255, 255, 0.04)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: 12,
+          padding: 20,
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+        }}
+      >
+        <div className="skeleton-block" style={{ width: "60%", height: 16, selfAlign: "flex-start" }} />
+        {/* Cercle central */}
+        <div className="skeleton-block" style={{ width: 100, height: 100, borderRadius: "50%" }} />
+      </div>
+    </div>
+  );
+};
+
+const FruitStatsGrid = ({ refreshKey = 0 }) => {
+  const { metrics, loading, error } = useRecentPerformance(refreshKey);
+
+  // 1. Affichage du Skeleton pendant le chargement
+  if (loading) {
+    return <FruitStatsGridSkeleton />;
+  }
+
+  // 2. Gestion de l'erreur
+  if (error || !metrics) {
+    return (
+      <div style={{ color: "#f87171", fontFamily: "'Roboto Mono', monospace", padding: 24 }}>
+        {error || "Aucune métrique disponible"}
+      </div>
+    );
+  }
+
+  const maxRecordedTime = Math.max(...metrics.vitesseTraitement.data, 1);
+
+  // 3. Rendu principal des données chargées
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 16,
+        width: "100%",
+        marginTop: 18,
+        flexWrap: "wrap",
+        boxSizing: "border-box",
+        alignItems: "stretch",
       }}
     >
       <div style={{ flex: "1 1 calc(60% - 8px)", minWidth: 300 }}>
-        <StatCard title="Grape" data={grapeData} strokeColor="#4fd8ff" />
+        <StatCard
+          title={metrics.vitesseTraitement.title}
+          data={metrics.vitesseTraitement.data}
+          strokeColor={metrics.vitesseTraitement.color}
+        />
       </div>
 
       <div style={{ flex: "1 1 calc(40% - 8px)", minWidth: 250 }}>
         <CircularStatCard
-          title="Banana (Moyenne)"
-          data={bananaData}
-          maxTarget={200}
-          strokeColor="#7fd8ff"
+          title={metrics.moyenne.title}
+          data={metrics.moyenne.data}
+          maxTarget={maxRecordedTime}
+          strokeColor={metrics.moyenne.color}
         />
       </div>
     </div>
   );
 };
+
+
 
 export default FruitStatsGrid;

@@ -39,6 +39,7 @@ PUBLIC_ROUTES = {
     "facial_pointage_api.facial_client_personnel_step4_enregistrer",
     "facial_pointage_api.facial_client_sortie_step4_enregistrer",
     "facial_pointage_api.sortie_facial_client_personnel_step4_enregistrer",
+    "facial_pointage_api.get_recent_performance_metrics" ,
     "clients_api.get_cls",
     "clients_api.facial_client_history",
     "clients_api.facial_client_history_photo" ,

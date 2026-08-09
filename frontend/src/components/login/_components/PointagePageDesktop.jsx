@@ -266,7 +266,7 @@ const PointagePageDesktop = ({
                     margin: "0 auto",
                 }}
             >
-                <FruitStatsGrid />
+                <FruitStatsGrid refreshKey={items.length} />
             </div>
         </div>
     );
