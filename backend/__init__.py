@@ -153,16 +153,4 @@ def create_app():
 
         print("✅ Toutes les tables SQLAlchemy ont été créées si elles n'existaient pas !")
         face_utils.preload_embeddings_threadsafe()
-        print("Nombre de personnels en base:", len(Personnels.query.all()))
-        for p in Personnels.query.all():
-          print(p.idpers, p.nom, "embedding:", p.embedding is not None)
-
-        print(f"[DEBUG] PERSONNELS_EMB: {face_utils.PERSONNELS_EMB}")
-        print(f"[DEBUG] Nombre d'embeddings en cache: {len(face_utils.PERSONNELS_EMB)}")
-
-        image_path = './img/4.jpg'
-        print(f"Image existe: {os.path.exists(image_path)}")  # True ou False
-        result = face_utils.verifier_face(image_path)
-        print(f"Resultat de la verification: {result}")
-
-    return app
+        return app
