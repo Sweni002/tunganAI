@@ -37,6 +37,8 @@ class JournalTentativePointage(db.Model):
 
     photo = db.Column(db.LargeBinary, nullable=True)
     mac_address = db.Column(db.String(17), nullable=True)
+    temps_ms = db.Column(db.Integer, nullable=True)  # Temps total de l'étape
+    temps_detail = db.Column(db.JSON, nullable=True)  # Détails des sous-opérations
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now, index=True)
 
@@ -52,6 +54,8 @@ class JournalTentativePointage(db.Model):
             "score_face": self.score_face,
             "second_score": self.second_score,
             "mac_address": self.mac_address,
+             "temps_ms": self.temps_ms,
+            "temps_detail": self.temps_detail,
             "date": self.created_at.date().isoformat(),
             "heure": self.created_at.strftime("%Hh:%M"),
             "has_photo": self.photo is not None,
