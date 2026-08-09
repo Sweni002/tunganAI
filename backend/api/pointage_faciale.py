@@ -871,6 +871,68 @@ def get_notifications_service():
         ]
     )
 
+
+@bp.route('/metrics/recent-performance', methods=['GET'])
+def get_recent_performance_metrics():
+    mac_param = request.args.get('mac', type=str)
+
+    query = JournalTentativePointage.query.filter(
+        JournalTentativePointage.etape == EtapePointage.ENREGISTREMENT,
+        JournalTentativePointage.statut == StatutPointage.SUCCES
+    )
+
+    if mac_param:
+        query = query.filter(JournalTentativePointage.mac_address == mac_param)
+
+    recent_logs = (
+        query.order_by(JournalTentativePointage.id.desc())
+        .limit(15)
+        .all()
+    )
+    recent_logs.reverse()
+
+    total_times = []
+    heures = []
+    current_mac = mac_param or (recent_logs[-1].mac_address if recent_logs else "Toutes")
+
+    for log in recent_logs:
+        detail = {}
+        if log.temps_detail:
+            try:
+                detail = json.loads(str(log.temps_detail))
+            except Exception:
+                detail = {}
+
+        visual_ms = detail.get("visuel", 0)
+        ident_ms = detail.get("identification", 0)
+        total_ms = log.temps_ms or (visual_ms + ident_ms)
+        total_times.append(round(total_ms, 1))
+        heures.append(log.created_at.strftime("%Hh%M"))
+
+    if not total_times:
+        total_times = [0]
+        heures = ["--"]
+
+    moyenne_actuelle = round(sum(total_times) / len(total_times), 1)
+
+    return jsonify({
+        "macAddress": current_mac,
+        "vitesseTraitement": {
+            "title": "Vitesse de Traitement (Temps Total)",
+            "unit": "ms",
+            "data": total_times,
+            "labels": heures,
+            "color": "#38bdf8"
+        },
+        "moyenne": {
+            "title": "Moyenne (15 derniers)",
+            "unit": "ms",
+            "value": moyenne_actuelle,
+            "data": total_times,
+            "color": "#7fd8ff"
+        }
+    })
+     
 import time
 
 import json
@@ -1661,21 +1723,7 @@ def facial_client_step1_verify_mac():
     
     total = (perf_counter() - start) * 1000
     
-    # LOG SUCCÈS AVEC TEMPS
-    log_tentative_pointage(
-        etape=EtapePointage.VERIFICATION_MAC,
-        statut=StatutPointage.SUCCES,
-        message=f"MAC autorisée pour {service.nom}",
-        mac_address=mac_address,
-        type_pointage=type_pointage,
-        temps_ms=total,
-        temps_detail={
-            "parse_ms": round(elapsed_parse, 3),
-            "db_ms": round(elapsed_db, 3),
-            "response_ms": round(elapsed_response, 3),
-            "total_ms": round(total, 3)
-        }
-    )
+   
 
     # RETOUR AU CLIENT AVEC PERFORMANCE
     response["performance"] = {

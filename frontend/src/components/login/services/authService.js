@@ -30,6 +30,24 @@ export const authService = {
     return data;
   },
 
+  // ==================== MÉTRIQUES DE PERFORMANCE ====================
+
+  // Récupère les temps des 15 derniers enregistrements réussis pour un poste.
+  getRecentPerformanceMetrics: async (macAddress) => {
+    const url = macAddress
+      ? `${API_URL}/api/pointage/metrics/recent-performance?mac=${encodeURIComponent(macAddress)}`
+      : `${API_URL}/api/pointage/metrics/recent-performance`;
+
+    const response = await fetch(url);
+    const data = await parseJsonSafe(response);
+
+    if (!response.ok) {
+      throw new Error((data && data.error) || "Impossible de récupérer les métriques.");
+    }
+
+    return data; // { macAddress, visualControl, identification, totalPointage, globalAverage }
+  },
+
  // ⭐ MODIFICATION: Récupérer les descripteurs faciaux avec MAC
   getFaceDescriptors: async (macAddress) => {
     // Si MAC fournie, filtrer par service

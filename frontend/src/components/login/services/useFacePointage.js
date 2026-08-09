@@ -463,7 +463,7 @@ export const useFacePointage = () => {
         setSendingToServer(false);
         setProcessingStep(0);
         setModalType("error");
-        setModalMessage("Visage masqué détecté. Retirez le masque/lunettes.");
+        setModalMessage("Visage masqué détecté. Retirez le masque/lunettes/Casquette...");
         setModalOpen(true);
         return;
       }
