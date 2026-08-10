@@ -28,13 +28,8 @@ export function useHeaderController({
   setDrawerOpen,
 }) {
   const navigate = useNavigate();
-  const {
-    user: admin,
-    setUser,
-    fetchMe,
-    logout,
-    loading: authLoading,
-  } = useContext(AuthContext);
+  const { user: admin, setUser, fetchMe, logout } = useContext(AuthContext);
+
   // ---- États ----
   const [isHovered, setIsHovered] = useState(false);
   const [open, setOpen] = useState(false); // dialogue de recherche
@@ -137,6 +132,23 @@ export function useHeaderController({
   }, [darkMode]);
 
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
+
+  // ---- Fetch utilisateur connecté ----
+  const fetchAdmin = async () => {
+    try {
+      const data = await fetchMe();
+      setUser(data);
+      console.log("me : ", data);
+    } catch (err) {
+      console.error("Erreur fetchMe:", err);
+      setUser(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdmin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   // ---- Socket temps réel ----
   useEffect(() => {
