@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Avatar } from "@mui/material";
+import { Avatar, Typography } from "@mui/material";
 import Logo from "../../../../assets/logo1.png";
 import Logo2 from "../../../../assets/finances.png";
 import { StyledBadge } from "../Header.styles";
@@ -51,8 +51,22 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
         )}
 
         <div className={styles.facegov}>
-          <span style={{ color: darkMode ? "rgb(224, 224, 224)" : "black" }}>Face</span>
-          <span style={{ color: "#1a3797ff" }}>Gov</span>
+      <Typography
+    variant="h6"
+    component="h1"
+    sx={{
+        color: "#e8f6f8",
+        fontFamily: "'Roboto Mono', monospace",
+        fontWeight: 700,
+        letterSpacing: "1.5px",
+        textTransform: "uppercase",
+        background: "linear-gradient(90deg, #00b4db 0%, #0083b0 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+    }}
+>
+    {import.meta.env.VITE_APP_NAME}
+</Typography>
         </div>
 
         {isMobile && (
@@ -86,9 +100,7 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
         )}
 
         <div className={styles.compte}>
-          <div className={styles.darkModeToggle}>
-            <DarkModeSwitch darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-          </div>
+         
 
           {admin?.role === "admin" && (
             <AccountBadge

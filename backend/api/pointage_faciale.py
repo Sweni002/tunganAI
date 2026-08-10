@@ -1697,19 +1697,7 @@ def facial_client_step1_verify_mac():
         enregistrer_mac_non_autorisee(mac_address)
         total = (perf_counter() - start) * 1000
         
-        log_tentative_pointage(
-            etape=EtapePointage.VERIFICATION_MAC,
-            statut=StatutPointage.ERREUR,
-            message="MAC non autorisée",
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total,
-            temps_detail={
-                "parse_ms": round(elapsed_parse, 3),
-                "db_ms": round(elapsed_db, 3),
-                "total_ms": round(total, 3)
-            }
-        )
+      
         return jsonify({"error": "Ce poste n'est pas autorisé à effectuer un pointage."}), 403
 
     # Construction de la réponse
@@ -2198,28 +2186,7 @@ def facial_client_step3_recognition():
         _cleanup_temp_image(image_path)
         return jsonify({"error": "Visage non reconnu ou ambigu"}), 401
  
-    # LOG SUCCÈS AVEC TEMPS DÉTAILLÉS
-    log_tentative_pointage(
-        etape=EtapePointage.RECOGNITION,
-        statut=StatutPointage.SUCCES,
-        message=f"Reconnaissance réussie pour {role} {id_value}",
-        idpers=id_value if role == "personnel" else None,
-        role=role,
-        score_face=score_face,
-        second_score=second_score,
-        image_path=image_path,
-        mac_address=mac_address,
-        type_pointage=type_pointage,
-        temps_ms=total,
-        temps_detail={
-            "validate_ms": round(elapsed_validate, 3),
-            "mac_ms": round(elapsed_mac, 3),
-            "allowed_ms": round(elapsed_allowed, 3),
-            "pop_ms": round(elapsed_pop, 3),
-            "match_ms": round(elapsed_match, 3),
-            "total_ms": round(total, 3)
-        }
-    )
+   
  
     _cleanup_temp_image(image_path)
  

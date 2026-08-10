@@ -128,7 +128,7 @@ const PointagePageDesktop = ({
                             WebkitTextFillColor: "transparent",
                         }}
                     >
-                        TONGAN'AI
+                        {import.meta.env.VITE_APP_NAME}
                     </Typography>
                 </div>
 

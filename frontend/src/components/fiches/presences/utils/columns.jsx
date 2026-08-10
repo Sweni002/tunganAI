@@ -13,20 +13,7 @@ import styles from '../presences.module.css';
 export function buildColumns(handleMenuClick) {
   return [
     { title: 'Matricule', dataIndex: 'matricule', key: 'matricule' },
-    {
-      title: (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          Nom
-        </div>
-      ),
-      key: 'nom_prenom',
-      render: (record) => (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', textAlign: 'center' }}>
-          <strong>{record.nom}</strong>
-          <small style={{ color: '#555', fontWeight: 'bold' }}>{record.division || '—'}</small>
-        </div>
-      ),
-    },
+ 
     {
       title: 'Date',
       dataIndex: 'date',

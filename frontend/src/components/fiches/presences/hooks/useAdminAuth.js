@@ -1,54 +1,68 @@
-// hooks/useAdminAuth.js
-import { useContext, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../../../AuthContext';
+import { useContext, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { AuthContext } from "../../../../AuthContext";
 
-/**
- * Détermine l'utilisateur courant (via contexte ou fetchMe) et en déduit
- * idrh / idserv, en donnant priorité au state de navigation (location.state)
- * sur le profil utilisateur.
- */
 export function useAdminAuth() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { fetchMe, user, loading: authLoading } = useContext(AuthContext);
+
+  const {
+    user,
+    loading: authLoading,
+  } = useContext(AuthContext);
 
   const [admin, setAdmin] = useState(null);
   const [idrh, setIdrh] = useState(null);
   const [idserv, setIdserv] = useState(null);
-  const isFetching = useRef(false);
 
   useEffect(() => {
-    const initAdmin = async () => {
-      let currentUser = user;
+    // 🔴 AuthContext est encore en train de vérifier la session
+    if (authLoading) {
+      return;
+    }
 
-      if (!currentUser && !authLoading) {
-        if (isFetching.current) return;
-        isFetching.current = true;
-        try {
-          currentUser = await fetchMe();
-        } catch (err) {
-          console.error('Erreur fetchMe:', err);
-          navigate('/login');
-          return;
-        } finally {
-          isFetching.current = false;
-        }
-      }
+    // 🔴 AuthContext a terminé et aucun utilisateur
+    if (!user) {
+      setAdmin(null);
+      setIdrh(null);
+      setIdserv(null);
 
-      if (currentUser) {
-        setAdmin(currentUser);
-        const targetIdRh = location.state?.idrh || currentUser?.responsable?.idrh;
-        const targetIdServ = location.state?.idserv || currentUser?.responsable?.idserv;
-        setIdrh(targetIdRh);
-        setIdserv(targetIdServ);
-      } else if (!authLoading) {
-        navigate('/login');
-      }
-    };
+      navigate("/login", { replace: true });
+      return;
+    }
 
-    initAdmin();
-  }, [user, fetchMe, location.state, authLoading, navigate]);
+    // 🟢 Utilisateur disponible
+    setAdmin(user);
 
-  return { admin, idrh, idserv, navigate, location };
+    // Priorité au state de navigation
+    const targetIdRh =
+      location.state?.idrh ??
+      user?.responsable?.idrh ??
+      user?.responsable?.id ??
+      null;
+
+    const targetIdServ =
+      location.state?.idserv ??
+      user?.responsable?.idserv ??
+      null;
+
+    setIdrh(targetIdRh);
+    setIdserv(targetIdServ);
+  }, [
+    user,
+    authLoading,
+    location.state,
+    navigate,
+  ]);
+
+  return {
+    admin,
+    idrh,
+    idserv,
+    navigate,
+    location,
+
+    // 🔥 très important pour les composants
+    loading: authLoading || (!admin && !!user),
+  };
 }
