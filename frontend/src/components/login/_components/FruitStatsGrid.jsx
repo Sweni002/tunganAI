@@ -389,7 +389,7 @@ const FruitStatsGrid = ({ refreshKey = 0 }) => {
         alignItems: "stretch",
       }}
     >
-      <div style={{ flex: "1 1 calc(60% - 8px)", minWidth: 300 }}>
+      <div style={{ flex: "1 1 calc(68% - 8px)", minWidth: 300 }}>
         <StatCard
           title={metrics.vitesseTraitement.title}
           data={metrics.vitesseTraitement.data}
@@ -397,7 +397,7 @@ const FruitStatsGrid = ({ refreshKey = 0 }) => {
         />
       </div>
 
-      <div style={{ flex: "1 1 calc(40% - 8px)", minWidth: 250 }}>
+      <div style={{ flex: "1 1 calc(32% - 8px)", minWidth: 250 }}>
         <CircularStatCard
           title={metrics.moyenne.title}
           data={metrics.moyenne.data}

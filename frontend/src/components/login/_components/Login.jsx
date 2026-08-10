@@ -13,7 +13,7 @@ import { useLoginBackground } from "../services/useLoginBackground";
 import styles from "./login.module.css";
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
+  const { login, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const isLargeScreen = useMediaQuery({ minWidth: 1200 });
 
@@ -36,75 +36,194 @@ const Login = () => {
   const handleShowPassword = () => setShowPassword((prev) => !prev);
 
   const goPointage = async () => {
-    if (!nom.trim() && !mdp.trim()) {
-      setLoginError("Veuillez entrer le matricule et le mot de passe !");
-      return;
-    }
-    if (!nom.trim()) {
-      setLoginError("Veuillez entrer votre matricule !");
-      return;
-    }
-    if (!mdp.trim()) {
-      setLoginError("Veuillez entrer votre mot de passe !");
-      return;
-    }
+  if (!nom.trim() && !mdp.trim()) {
+    setLoginError(
+      "Veuillez entrer le matricule et le mot de passe !"
+    );
+    return;
+  }
 
-    setLoading(true);
-    try {
-      const data = await login(nom, mdp);
+  if (!nom.trim()) {
+    setLoginError("Veuillez entrer votre matricule !");
+    return;
+  }
 
-      if (data.conflict && data.users?.responsable) {
-        const responsable = data.users.responsable;
-        localStorage.setItem("user", JSON.stringify(responsable));
-        localStorage.setItem("role", "responsable");
-        navigate("/global/fiche_presence", {
-          state: { idrh: responsable.id, idserv: responsable.idserv },
-        });
-        return;
-      }
+  if (!mdp.trim()) {
+    setLoginError("Veuillez entrer votre mot de passe !");
+    return;
+  }
 
-      if (data.user) {
-        const role = data.user.role;
-        localStorage.setItem("user", JSON.stringify(data.user));
-        localStorage.setItem("role", role);
+  setLoading(true);
 
-        if (role === "admin") {
-          navigate("/global/service", { replace: true });
-        } else if (role === "responsable") {
-          navigate("/global/fiche_presence", {
-            state: { idrh: data.user.id, idserv: data.user.idserv },
-          });
-        } else {
-          navigate("/global/historique", { replace: true });
-        }
-      } else if (data.conflict) {
-        let defaultRole = data.available_roles.includes("admin")
-          ? "admin"
-          : data.available_roles.includes("responsable")
-          ? "responsable"
-          : "personnel";
+  try {
+    const data = await login(nom, mdp);
 
-        const user = data.users[defaultRole];
-        localStorage.setItem("user", JSON.stringify(user));
-        localStorage.setItem("role", defaultRole);
+    console.log("LOGIN DATA :", data);
 
-        if (defaultRole === "admin") {
-          navigate("/global/service", { replace: true });
-        } else if (defaultRole === "responsable") {
-          navigate("/global/fiche_presence", {
-            state: { idrh: user.id, idserv: user.idserv },
-          });
-        } else {
-          navigate("/global/historique", { replace: true });
-        }
-      }
-    } catch (error) {
-      console.error("Erreur de connexion :", error);
-      setLoginError(error.message || "Erreur de connexion au serveur");
-    } finally {
-      setLoading(false);
-    }
+    // =====================================================
+    // CAS 1 : COMPTE MULTI-RÔLES
+    // =====================================================
+  if (
+  data.role_conflict === true ||
+  data.conflict === true
+) {
+  const availableRoles = data.available_roles || [];
+
+  console.log("MULTI-ROLES :", availableRoles);
+
+  let selectedRole;
+
+  // Priorité
+  if (availableRoles.includes("responsable")) {
+    selectedRole = "responsable";
+  } else if (availableRoles.includes("personnel")) {
+    selectedRole = "personnel";
+  } else if (availableRoles.includes("admin")) {
+    selectedRole = "admin";
+  }
+
+  if (!selectedRole) {
+    throw new Error("Aucun rôle valide n'a été trouvé.");
+  }
+
+  const selectedUser = data.users?.[selectedRole];
+
+  if (!selectedUser) {
+    throw new Error(
+      `Les informations du rôle "${selectedRole}" sont introuvables.`
+    );
+  }
+
+  console.log("RÔLE SÉLECTIONNÉ :", selectedRole);
+  console.log("UTILISATEUR SÉLECTIONNÉ :", selectedUser);
+
+  // =====================================================
+  // IMPORTANT :
+  // construire l'utilisateur courant pour AuthContext
+  // =====================================================
+
+  const currentUser = {
+    ...selectedUser,
+
+    // rôle actuellement actif
+    role: selectedRole,
+
+    // informations multi-rôles
+    available_roles: availableRoles,
+    conflict: data.conflict,
+    role_conflict: data.role_conflict,
+
+    // conserver les utilisateurs des différents rôles
+    users: data.users,
+
+    // structure attendue par Header
+    responsable: data.users?.responsable || null,
+    personnel: data.users?.personnel || null,
+    admin: data.users?.admin || null,
   };
+
+  console.log("CURRENT USER :", currentUser);
+
+  // 🔥 TRÈS IMPORTANT
+  // AuthContext est maintenant immédiatement synchronisé
+  setUser(currentUser);
+
+  // localStorage
+  localStorage.setItem(
+    "user",
+    JSON.stringify(currentUser)
+  );
+
+  localStorage.setItem(
+    "role",
+    selectedRole
+  );
+
+  // =====================================================
+  // NAVIGATION
+  // =====================================================
+
+  if (selectedRole === "responsable") {
+    navigate("/global/fiche_presence", {
+      replace: true,
+      state: {
+        idrh: selectedUser.id,
+        idserv: selectedUser.idserv,
+      },
+    });
+  } else if (selectedRole === "personnel") {
+    navigate("/global/historique", {
+      replace: true,
+    });
+  } else if (selectedRole === "admin") {
+    navigate("/global/service", {
+      replace: true,
+    });
+  }
+
+  return;
+}
+
+    // =====================================================
+    // CAS 2 : COMPTE MONO-RÔLE
+    // =====================================================
+
+    const user = data.user;
+
+    if (!user) {
+      throw new Error(
+        "Utilisateur non retourné par le serveur."
+      );
+    }
+
+    const role = user.role;
+
+    console.log("MONO-RÔLE :", role);
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify(user)
+    );
+
+    localStorage.setItem(
+      "role",
+      role
+    );
+
+    if (role === "admin") {
+      navigate("/global/service", {
+        replace: true,
+      });
+    } else if (role === "responsable") {
+      navigate("/global/fiche_presence", {
+        replace: true,
+        state: {
+          idrh: user.id,
+          idserv: user.idserv,
+        },
+      });
+    } else {
+      navigate("/global/historique", {
+        replace: true,
+      });
+    }
+
+  } catch (error) {
+    console.error(
+      "Erreur de connexion :",
+      error
+    );
+
+    setLoginError(
+      error.message ||
+        "Erreur de connexion au serveur"
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !loading) {

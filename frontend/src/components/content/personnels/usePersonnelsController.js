@@ -26,14 +26,16 @@ export function usePersonnelsController() {
   const [searchText, setSearchText] = useState("");
   const [selectedDivision, setSelectedDivision] = useState(null);
   const open = Boolean(menuAnchor);
-  const { fetchMe } = useContext(AuthContext);
-  const [admin, setAdmin] = useState(null);
+  const {
+    user: admin,
+    authLoading,
+  } = useContext(AuthContext);
   const scrollRef = useRef(null);
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
   const scrollBtnsRef = useRef({});
   const [loadingPage, setLoadingPage] = useState(true);
-  const isFetching = useRef(false);
+ 
   const [selectedRecord, setSelectedRecord] = useState(null);
 
   const scroll = (direction) => {
@@ -97,24 +99,7 @@ export function usePersonnelsController() {
     };
   }, [divisions]);
 
-  useEffect(() => {
-    const fetchAdmin = async () => {
-      if (isFetching.current) return;
-      isFetching.current = true;
 
-      try {
-        const data = await fetchMe();
-        setAdmin(data);
-        console.log("me1 : ", data);
-      } catch (err) {
-        console.error("Erreur fetchMe:", err);
-        setAdmin(null);
-      } finally {
-        isFetching.current = false;
-      }
-    };
-    fetchAdmin();
-  }, []);
 
   const voirFicheAssiduite = (record) => {
     console.log("Matricule :", record.matricule);
@@ -177,56 +162,76 @@ export function usePersonnelsController() {
     });
   };
 
-  useEffect(() => {
-    if (!admin || !admin.responsable || !admin.responsable.idrh) {
-      console.log("Admin pas encore chargé, on attend...");
-      return;
-    }
+useEffect(() => {
+  // AuthContext est encore en train de restaurer la session
+  if (authLoading) {
+    return;
+  }
 
-    const idserv = admin.responsable.idserv;
-    setLoading(true);
-    setLoadingPage(true);
+  // Session absente
+  if (!admin) {
+    navigate("/login", { replace: true });
+    return;
+  }
 
-    const fetchDivisions = fetchWithAuth(
-      `${API_URL}/api/divisions/with_count?idserv=${idserv}`
-    );
+  // Cette page nécessite le rôle responsable
+  if (
+    admin.role !== "responsable" ||
+    !admin.responsable?.idrh ||
+    !admin.responsable?.idserv
+  ) {
+    console.warn("Utilisateur responsable incomplet :", admin);
+    return;
+  }
 
-    const fetchPersonnels = fetchWithAuth(
-      `${API_URL}/api/personnels/service/${admin.responsable.idserv}`
-    );
+  const idserv = admin.responsable.idserv;
 
-    Promise.all([fetchDivisions, fetchPersonnels])
-      .then(([divisionsData, personnelsData]) => {
-        if (Array.isArray(divisionsData)) {
-          setDivisions(divisionsData);
-        } else {
-          console.error("Erreur divisions:", divisionsData);
-          setDivisions([]);
-        }
+  setLoading(true);
+  setLoadingPage(true);
 
-        if (Array.isArray(personnelsData)) {
-          console.log("perso ! ", personnelsData);
-          setPersonnels(personnelsData);
-          setErrorMsg(null);
-        } else if (personnelsData.error) {
-          setErrorMsg(personnelsData.error);
-          setPersonnels([]);
-        } else {
-          setErrorMsg("Format inattendu pour personnels");
-          setPersonnels([]);
-        }
-      })
-      .catch((err) => {
-        console.error("Erreur fetch divisions/personnels:", err);
+  const fetchDivisions = fetchWithAuth(
+    `${API_URL}/api/divisions/with_count?idserv=${idserv}`
+  );
+
+  const fetchPersonnels = fetchWithAuth(
+    `${API_URL}/api/personnels/service/${idserv}`
+  );
+
+  Promise.all([fetchDivisions, fetchPersonnels])
+    .then(([divisionsData, personnelsData]) => {
+      if (Array.isArray(divisionsData)) {
+        setDivisions(divisionsData);
+      } else {
+        console.error("Erreur divisions:", divisionsData);
         setDivisions([]);
+      }
+
+      if (Array.isArray(personnelsData)) {
+        setPersonnels(personnelsData);
+        setErrorMsg(null);
+      } else if (personnelsData?.error) {
+        setErrorMsg(personnelsData.error);
         setPersonnels([]);
-        setErrorMsg(err.message);
-      })
-      .finally(() => {
-        setLoading(false);
-        setLoadingPage(false);
-      });
-  }, [admin, refreshKey]);
+      } else {
+        setErrorMsg("Format inattendu pour personnels");
+        setPersonnels([]);
+      }
+    })
+    .catch((err) => {
+      console.error(
+        "Erreur fetch divisions/personnels:",
+        err
+      );
+
+      setDivisions([]);
+      setPersonnels([]);
+      setErrorMsg(err.message);
+    })
+    .finally(() => {
+      setLoading(false);
+      setLoadingPage(false);
+    });
+}, [admin, authLoading, refreshKey]);
 
   const handleDeleteClick = (record) => {
     setRecordToDelete(record);

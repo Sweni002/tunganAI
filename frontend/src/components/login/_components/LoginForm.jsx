@@ -222,7 +222,7 @@ const LoginForm = ({
                   )}
                 </div>
                 <div className={styles.merci}>
-                  <h2>Espace FaceGov</h2>
+                  <h2>Espace  {import.meta.env.VITE_APP_NAME}</h2>
                   <label>
                     Entrez vos identifiants pour accéder à votre compte ou
                     choisissez l'option de pointage.

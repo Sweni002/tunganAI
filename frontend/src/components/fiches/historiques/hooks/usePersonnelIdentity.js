@@ -1,54 +1,72 @@
 // hooks/usePersonnelIdentity.js
-import { useContext, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../../../AuthContext';
+import { useContext, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { AuthContext } from "../../../../AuthContext";
 
 /**
- * Détermine l'utilisateur courant (via fetchMe) et en déduit idpers, en
- * donnant priorité au state de navigation (location.state.idpers) sur le
- * profil utilisateur (admin.personnel.idpers).
+ * Détermine l'identité du personnel connecté.
  *
- * Équivalent de useAdminAuth (module presences/) mais pour un contexte
- * "personnel" (idpers) plutôt que "responsable" (idrh/idserv).
+ * Source unique de vérité :
+ *   AuthContext.user
+ *
+ * Priorité pour idpers :
+ *   1. location.state.idpers
+ *   2. user.personnel.idpers
+ *
+ * Aucun fetchMe() ici :
+ * AuthContext s'occupe déjà de restaurer la session.
  */
 export function usePersonnelIdentity() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { fetchMe } = useContext(AuthContext);
 
-  const [admin, setAdmin] = useState(null);
-  const [idpers, setIdpers] = useState(null);
-  const isFetching = useRef(false);
+  const {
+    user: admin,
+    loading: authLoading,
+  } = useContext(AuthContext);
 
+  /**
+   * ID personnel :
+   * priorité au state de navigation
+   */
+  const idpers =
+    location.state?.idpers ??
+    admin?.personnel?.idpers ??
+    null;
+
+  /**
+   * Redirection uniquement après
+   * la restauration de la session.
+   */
   useEffect(() => {
-    const initAdmin = async () => {
-      if (isFetching.current) return;
-      isFetching.current = true;
+    // AuthContext est encore en train de récupérer la session
+    if (authLoading) {
+      return;
+    }
 
-      try {
-        const data = await fetchMe();
-        setAdmin(data);
+    // Session inexistante
+    if (!admin) {
+      navigate("/login", { replace: true });
+      return;
+    }
 
-        // Priorité 1 : idpers transmis via la navigation
-        if (location.state?.idpers) {
-          setIdpers(location.state.idpers);
-        }
-        // Priorité 2 : idpers du profil connecté
-        else if (data?.personnel?.idpers) {
-          setIdpers(data.personnel.idpers);
-        }
-      } catch (err) {
-        console.error('Erreur fetchMe:', err);
-        navigate('/login');
-        setAdmin(null);
-        setIdpers(null);
-      } finally {
-        isFetching.current = false;
-      }
-    };
+    // Utilisateur connecté mais profil personnel incomplet
+    if (
+      admin.role === "personnel" &&
+      !admin.personnel?.idpers
+    ) {
+      console.warn(
+        "⚠️ Profil personnel incomplet :",
+        admin
+      );
+    }
+  }, [admin, authLoading, navigate]);
 
-    initAdmin();
-  }, [fetchMe, location.state, navigate]);
-
-  return { admin, idpers, navigate };
+  return {
+    admin,
+    idpers,
+    authLoading,
+    navigate,
+    location,
+  };
 }
