@@ -17,3 +17,6 @@ frontend/.env.local
 .idea/
 .DS_Store
 Thumbs.db
+
+backend/uploads/
+face_db1/
