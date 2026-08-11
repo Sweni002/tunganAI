@@ -872,29 +872,44 @@ def get_notifications_service():
     )
 
 
+
+
 @bp.route('/metrics/recent-performance', methods=['GET'])
 def get_recent_performance_metrics():
     mac_param = request.args.get('mac', type=str)
 
+    # Temps de référence (à adapter selon ton système)
+    TEMPS_NORMAL_MS = 800
+
     query = JournalTentativePointage.query.filter(
-    JournalTentativePointage.etape == EtapePointage.ENREGISTREMENT
-)
+        JournalTentativePointage.etape == EtapePointage.ENREGISTREMENT
+    )
+
     if mac_param:
-        query = query.filter(JournalTentativePointage.mac_address == mac_param)
+        query = query.filter(
+            JournalTentativePointage.mac_address == mac_param
+        )
 
     recent_logs = (
         query.order_by(JournalTentativePointage.id.desc())
         .limit(15)
         .all()
     )
+
     recent_logs.reverse()
 
     total_times = []
     heures = []
-    current_mac = mac_param or (recent_logs[-1].mac_address if recent_logs else "Toutes")
+
+    current_mac = (
+        mac_param
+        if mac_param
+        else (recent_logs[-1].mac_address if recent_logs else "Toutes")
+    )
 
     for log in recent_logs:
         detail = {}
+
         if log.temps_detail:
             try:
                 detail = json.loads(str(log.temps_detail))
@@ -902,9 +917,13 @@ def get_recent_performance_metrics():
                 detail = {}
 
         visual_ms = detail.get("visuel", 0)
-        ident_ms = detail.get("identification", 0)
-        total_ms = log.temps_ms or (visual_ms + ident_ms)
-        total_times.append(round(total_ms, 1))
+        identification_ms = detail.get("identification", 0)
+
+        total_ms = log.temps_ms
+        if total_ms is None:
+            total_ms = visual_ms + identification_ms
+
+        total_times.append(round(float(total_ms), 1))
         heures.append(log.created_at.strftime("%Hh%M"))
 
     if not total_times:
@@ -913,24 +932,43 @@ def get_recent_performance_metrics():
 
     moyenne_actuelle = round(sum(total_times) / len(total_times), 1)
 
+    # Indice de vitesse par rapport à la vitesse normale
+    if moyenne_actuelle > 0:
+        indice_vitesse = round(TEMPS_NORMAL_MS / moyenne_actuelle, 2)
+    else:
+        indice_vitesse = 0
+
+    # Texte explicatif
+    if indice_vitesse > 1:
+        interpretation = f"{indice_vitesse}× plus rapide que la normale"
+    elif indice_vitesse < 1:
+        interpretation = f"{round(1/indice_vitesse,2)}× plus lent que la normale"
+    else:
+        interpretation = "Performance normale"
+
     return jsonify({
         "macAddress": current_mac,
+
         "vitesseTraitement": {
-            "title": "Vitesse de Traitement (Temps Total)",
+            "title": "Vitesse de Traitement (en MS)",
             "unit": "ms",
             "data": total_times,
             "labels": heures,
             "color": "#38bdf8"
         },
+
         "moyenne": {
-            "title": "Moyenne (15 derniers)",
-            "unit": "ms",
-            "value": moyenne_actuelle,
+            "title": "Indice de vitesse (15 derniers)",
+            "unit": "x",
+            "value": indice_vitesse,
+            "reference_ms": TEMPS_NORMAL_MS,
+            "temps_moyen_ms": moyenne_actuelle,
+            "interpretation": interpretation,
             "data": total_times,
             "color": "#7fd8ff"
         }
     })
-     
+       
 import time
 
 import json
