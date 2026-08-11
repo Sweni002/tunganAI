@@ -877,10 +877,8 @@ def get_recent_performance_metrics():
     mac_param = request.args.get('mac', type=str)
 
     query = JournalTentativePointage.query.filter(
-        JournalTentativePointage.etape == EtapePointage.ENREGISTREMENT,
-        JournalTentativePointage.statut == StatutPointage.SUCCES
-    )
-
+    JournalTentativePointage.etape == EtapePointage.ENREGISTREMENT
+)
     if mac_param:
         query = query.filter(JournalTentativePointage.mac_address == mac_param)
 
