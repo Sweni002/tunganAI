@@ -17,6 +17,9 @@ export const useRecentPerformance = (refreshKey = 0) => {
       try {
         const mac = await getSystemWifiMac(); // null si l'agent n'est pas lancé
         const data = await authService.getRecentPerformanceMetrics(mac);
+        
+        console.log(data)
+
         if (!cancelled) setMetrics(data);
       } catch (err) {
         if (!cancelled) setError(err.message);
