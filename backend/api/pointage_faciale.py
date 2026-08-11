@@ -951,6 +951,12 @@ def log_tentative_pointage(etape, statut, message,
     try:
         # Lecture de l'image
         photo_data = None
+        print("=" * 60)
+        print("image_path :", image_path)
+        print("image_bytes:", image_bytes is not None)
+
+        if image_path:
+          print("exists :", os.path.exists(image_path))
         if image_bytes is not None:
             photo_data = image_bytes
         elif image_path and os.path.exists(image_path):
@@ -1817,7 +1823,7 @@ def _cleanup_temp_image(image_path):
 #
 # L'ancien code faisait "with ThreadPoolExecutor() as executor:" à CHAQUE
 # requête : création + destruction d'un pool pour lancer une seule tâche.
-# Un pool unique au niveau module supprime ce coût.
+# Un pool unique au niveau module supprime ce cog_tût.
 # ============================================================
 _EXECUTOR = concurrent.futures.ThreadPoolExecutor(
     max_workers=8, thread_name_prefix="pointage"
@@ -2161,49 +2167,62 @@ def facial_client_step3_recognition():
         _cleanup_temp_image(image_path)
         return jsonify({"error": str(e)}), 500
  
+    # -----------------------------
+# Succès
+# -----------------------------
     total = (perf_counter() - start_global) * 1000
-    
+
     if not role:
-        log_tentative_pointage(
-            etape=EtapePointage.RECOGNITION,
-            statut=StatutPointage.ERREUR,
-            message="Visage non reconnu ou ambigu",
-            score_face=score_face,
-            second_score=second_score,
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total,
-            temps_detail={
-                "validate_ms": round(elapsed_validate, 3),
-                "mac_ms": round(elapsed_mac, 3),
-                "allowed_ms": round(elapsed_allowed, 3),
-                "pop_ms": round(elapsed_pop, 3),
-                "match_ms": round(elapsed_match, 3),
-                "total_ms": round(total, 3)
-            }
-        )
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": "Visage non reconnu ou ambigu"}), 401
- 
-   
- 
-    _cleanup_temp_image(image_path)
- 
-    return jsonify({
-        "role": role,
-        "id_value": id_value,
-        "score_face": score_face,
-        "second_score": second_score,
-        "performance": {
+      log_tentative_pointage(
+        etape=EtapePointage.RECOGNITION,
+        statut=StatutPointage.ERREUR,
+        message="Visage non reconnu ou ambigu",
+        score_face=score_face,
+        second_score=second_score,
+        image_path=image_path,
+        mac_address=mac_address,
+        type_pointage=type_pointage,
+        temps_ms=total,
+        temps_detail={
             "validate_ms": round(elapsed_validate, 3),
             "mac_ms": round(elapsed_mac, 3),
             "allowed_ms": round(elapsed_allowed, 3),
             "pop_ms": round(elapsed_pop, 3),
             "match_ms": round(elapsed_match, 3),
-            "total_ms": round(total, 3)
-        }
-    }), 200  
+            "total_ms": round(total, 3),
+        },
+    )
+
+      _cleanup_temp_image(image_path)
+
+      return jsonify({
+        "error": "Visage non reconnu ou ambigu"
+    }), 401
+
+
+# ============================================================
+# IMPORTANT :
+# Ne PAS supprimer l'image ici.
+# Elle sera utilisée par step4 pour l'enregistrement du journal.
+# Le cleanup sera effectué dans step4.
+# ============================================================
+
+    return jsonify({
+    "role": role,
+    "id_value": id_value,
+   "emb": emb.tolist() if emb is not None else None,
+    "score_face": float(score_face),
+    "second_score": float(second_score) if second_score is not None else -1,
+    "temp_id": temp_id,          # <-- AJOUT IMPORTANT
+    "performance": {
+        "validate_ms": round(elapsed_validate, 3),
+        "mac_ms": round(elapsed_mac, 3),
+        "allowed_ms": round(elapsed_allowed, 3),
+        "pop_ms": round(elapsed_pop, 3),
+        "match_ms": round(elapsed_match, 3),
+        "total_ms": round(total, 3),
+    }
+}), 200
 
 # ============================================================
 # ÉTAPE 4 : Enregistrement du pointage (ENTRÉE)
@@ -2250,6 +2269,10 @@ def facial_client_step4_enregistrer():
     descriptor_list = data.get("face_descriptor")
     mac_address = data.get("mac_address")
     temp_id = data.get("temp_id")
+    print("=" * 60)
+    print("REQUEST JSON :", data)
+    print("temp_id      :", temp_id)
+    print("mac_address  :", mac_address)
     type_pointage_str = data.get("type_pointage")
     type_pointage = TypePointage(type_pointage_str) if type_pointage_str in ("entree", "sortie") else None
 

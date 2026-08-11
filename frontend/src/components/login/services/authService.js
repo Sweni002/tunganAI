@@ -155,7 +155,7 @@ export const authService = {
     );
 
     const data = await parseJsonSafe(response);
-
+  console.log(data)
     if (!response.ok) {
       throw new Error((data && data.error) || "Impossible de récupérer l'historique.");
     }

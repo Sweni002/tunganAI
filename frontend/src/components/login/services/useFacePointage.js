@@ -501,6 +501,7 @@ export const useFacePointage = () => {
           wifiMacAddress,
           typePointage
         );
+        console.log("RecognitionResult =", recognitionResult);
       } catch (err) {
         if (err.name === "AbortError") {
           console.log("Requête annulée");
