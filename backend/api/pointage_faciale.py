@@ -3576,7 +3576,285 @@ def get_pointages_par_date_division_et_service():
         "has_more": has_more,
     }), 200
 
+from datetime import date
+from sqlalchemy import func, case, and_ ,distinct
 
+@bp.route("/stats", methods=["GET"])
+def get_stats_service():
+
+    idserv = request.args.get("idserv", type=int)
+    iddiv = request.args.get("iddiv", type=int)
+
+    date_str = request.args.get("date")
+    date_debut_str = request.args.get("dateDebut")
+    date_fin_str = request.args.get("dateFin")
+
+    # =========================
+    # SERVICE OBLIGATOIRE
+    # =========================
+    if not idserv:
+        return jsonify({"error": "idserv requis"}), 400
+
+    # =========================
+    # PARSING DES DATES
+    # =========================
+    selected_date = None
+    date_debut = None
+    date_fin = None
+
+    # ----- Date unique -----
+    if date_str:
+        try:
+            selected_date = datetime.strptime(
+                date_str,
+                "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            return jsonify({
+                "error": "date invalide, format attendu YYYY-MM-DD"
+            }), 400
+
+    # ----- Plage de dates -----
+    if date_debut_str or date_fin_str:
+
+        if not date_debut_str or not date_fin_str:
+            return jsonify({
+                "error": "dateDebut et dateFin sont requis ensemble"
+            }), 400
+
+        try:
+            date_debut = datetime.strptime(
+                date_debut_str,
+                "%Y-%m-%d"
+            ).date()
+
+            date_fin = datetime.strptime(
+                date_fin_str,
+                "%Y-%m-%d"
+            ).date()
+
+        except ValueError:
+            return jsonify({
+                "error": "dateDebut/dateFin invalides, format attendu YYYY-MM-DD"
+            }), 400
+
+        if date_fin < date_debut:
+            return jsonify({
+                "error": "dateFin doit être supérieure ou égale à dateDebut"
+            }), 400
+
+        # La plage est prioritaire
+        selected_date = None
+
+    # ----- Aucun filtre de date -----
+    if not selected_date and not date_debut:
+        selected_date = date.today()
+
+    # =========================
+    # REQUETE DE BASE
+    # =========================
+    query = (
+        db.session.query(
+
+            # =========================
+            # EFFECTIF
+            # =========================
+          func.count(
+    distinct(Personnels.idpers)
+).label("effectif"),
+
+            # =========================
+            # PRESENCE
+            # =========================
+            func.sum(
+                case(
+                    (
+                        Pointage.heure_entree_matin.isnot(None),
+                        0.5
+                    ),
+                    else_=0.0,
+                )
+                +
+                case(
+                    (
+                        Pointage.heure_entree_soir.isnot(None),
+                        0.5
+                    ),
+                    else_=0.0,
+                )
+            ).label("presence"),
+
+            # =========================
+            # RETARDS
+            # =========================
+            func.sum(
+                case(
+                    (Pointage.retard_matin == 1, 0.5),
+                    else_=0.0,
+                )
+                +
+                case(
+                    (Pointage.retard_soir == 1, 0.5),
+                    else_=0.0,
+                )
+            ).label("retards"),
+
+            # =========================
+            # ABSENCES NON JUSTIFIEES
+            # =========================
+            func.sum(
+                case(
+                    (
+                        and_(
+                            Pointage.absence_matin == 1,
+                            Pointage.justificatif.is_(None),
+                        ),
+                        0.5,
+                    ),
+                    else_=0.0,
+                )
+                +
+                case(
+                    (
+                        and_(
+                            Pointage.absence_soir == 1,
+                            Pointage.justificatif.is_(None),
+                        ),
+                        0.5,
+                    ),
+                    else_=0.0,
+                )
+            ).label("absence_non_justifiee"),
+
+            # =========================
+            # ABSENCES JUSTIFIEES
+            # =========================
+            func.sum(
+                case(
+                    (
+                        and_(
+                            Pointage.absence_matin == 1,
+                            Pointage.justificatif.isnot(None),
+                        ),
+                        0.5,
+                    ),
+                    else_=0.0,
+                )
+                +
+                case(
+                    (
+                        and_(
+                            Pointage.absence_soir == 1,
+                            Pointage.justificatif.isnot(None),
+                        ),
+                        0.5,
+                    ),
+                    else_=0.0,
+                )
+            ).label("absence_justifiee"),
+        )
+        .select_from(Personnels)
+
+        # =========================
+        # PERSONNELS → RESPONSABLES
+        # =========================
+        .join(
+            Responsables,
+            Personnels.idrh == Responsables.idrh
+        )
+
+        # =========================
+        # PERSONNELS → POINTAGES
+        # =========================
+        .outerjoin(
+            Pointage,
+            and_(
+                Pointage.idpers == Personnels.idpers,
+
+                # Date unique
+                (
+                    Pointage.date == selected_date
+                    if selected_date
+                    else Pointage.date.between(date_debut, date_fin)
+                ),
+            ),
+        )
+
+        # =========================
+        # SERVICE
+        # =========================
+        .filter(
+            Responsables.idserv == idserv
+        )
+    )
+
+    # =========================
+    # DIVISION OPTIONNELLE
+    # =========================
+    if iddiv:
+        query = query.filter(
+            Personnels.iddiv == iddiv
+        )
+
+    stats = query.first()
+
+    # =========================
+    # RESULTATS
+    # =========================
+    effectif = int(stats.effectif or 0)
+    presence = float(stats.presence or 0)
+    retards = float(stats.retards or 0)
+
+    absence_non_justifiee = float(
+        stats.absence_non_justifiee or 0
+    )
+
+    absence_justifiee = float(
+        stats.absence_justifiee or 0
+    )
+
+    # =========================
+    # TAUX
+    # =========================
+    taux_presence = (
+        round((presence / effectif) * 100, 1)
+        if effectif > 0
+        else 0
+    )
+
+    # =========================
+    # REPONSE
+    # =========================
+    return jsonify({
+        "idserv": idserv,
+        "iddiv": iddiv,
+
+        "date": (
+            selected_date.isoformat()
+            if selected_date
+            else None
+        ),
+
+        "dateDebut": (
+            date_debut.isoformat()
+            if date_debut
+            else None
+        ),
+
+        "dateFin": (
+            date_fin.isoformat()
+            if date_fin
+            else None
+        ),
+
+        "effectif": effectif,
+        "presence": presence,
+        "retards": retards,
+        "absence_non_justifiee": absence_non_justifiee,
+        "absence_justifiee": absence_justifiee,
+        "taux_presence": taux_presence,
+    }), 200
+    
 @bp.route("/faciall/par_date", methods=["GET"])
 def get_pointages_par_date_par_service():
     date_str = request.args.get("date")

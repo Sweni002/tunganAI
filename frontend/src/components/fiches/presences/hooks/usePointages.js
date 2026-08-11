@@ -206,5 +206,6 @@ export function usePointages({
     triggerRefresh,
     supprimerPointageLocalement,
     setPersonnels,
+    refreshKey,
   };
 }
