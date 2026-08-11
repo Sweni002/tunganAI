@@ -76,6 +76,7 @@ const Presences = () => {
         handlePrevPage,
         triggerRefresh,
         supprimerPointageLocalement,
+        refreshKey,
     } = usePointages({
         idrh,
         idserv,
@@ -252,10 +253,16 @@ const Presences = () => {
                 title="Présences"
                 subtitle="Suivi des pointages et présences du personnel"
             />
+            <StatsCards
+                idserv={idserv}
+                iddiv={selectedDivision}
+                selectedDate={selectedDate}
+                dateDebutFiltre={plage.debut}
+                dateFinFiltre={plage.fin}
+                fetchWithAuth={fetchWithAuth}
+                refreshKey={refreshKey}
+            />
 
-            {/* ⚠ Ces cartes ne comptent que la page courante (10 lignes).
-                Voir la note sous le code : il faut un endpoint /facial/stats. */}
-            <StatsCards personnels={personnels} />
 
             <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'flex-end', width: '100%', maxWidth: 1700 }}>
                 <DivisionsToggleButton
