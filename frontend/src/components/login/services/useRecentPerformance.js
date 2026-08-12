@@ -1,7 +1,7 @@
 // src/pages/Login/services/useRecentPerformance.js
 import { useEffect, useState } from "react";
 import { authService } from "./authService";
-import { getSystemWifiMac } from "./macAgentService";
+import { getCachedMacAddress } from "./macCacheService";
 
 export const useRecentPerformance = (refreshKey = 0) => {
   const [metrics, setMetrics] = useState(null);
@@ -15,7 +15,8 @@ export const useRecentPerformance = (refreshKey = 0) => {
       setLoading(true);
       setError(null);
       try {
-        const mac = await getSystemWifiMac(); // null si l'agent n'est pas lancé
+        // Utiliser le cache au lieu d'appeler directement getSystemWifiMac
+        const mac = await getCachedMacAddress();
         const data = await authService.getRecentPerformanceMetrics(mac);
         
         console.log(data)

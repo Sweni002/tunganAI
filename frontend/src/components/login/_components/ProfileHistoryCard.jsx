@@ -398,18 +398,13 @@ const ProfileHistoryCard = ({
   statusColors = DEFAULT_STATUS_COLORS,
   height = 440,
   loading = false,
-  skeletonRows = 6,
-  minSkeletonDuration = 2000,
+  skeletonRows = 6
 }) => {
-  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+ 
   const [hoveredItem, setHoveredItem] = useState(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setMinTimeElapsed(true), minSkeletonDuration);
-    return () => clearTimeout(timer);
-  }, [minSkeletonDuration]);
-
-  const showSkeleton = loading || !minTimeElapsed;
+ 
+  const showSkeleton = loading ;
 
   return (
     <div

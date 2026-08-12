@@ -362,6 +362,7 @@ def _tri_matricule_numerique(p):
 # ===========================================================================
 
 @bp.route("/generer-excel-rh", methods=["GET"])
+@cached_assiduite
 def generer_excel_rh():
     logger.info("===== Début génération Excel RH =====")
 
@@ -450,6 +451,7 @@ def generer_excel_rh():
 
 
 @bp.route("/generer-excel-rh_personnel", methods=["GET"])
+@cached_assiduite
 def generer_excel_rh_perso():
     logger.info("===== Début génération Excel RH personnel =====")
 

@@ -15,6 +15,7 @@ import {
   landmarksToBox,
   computeLandmarkSignature,
 } from "./mediapipeService";
+import { getCachedMacAddress } from "./macCacheService";
 
 // ⚙️ Passe à true si <Webcam mirrored /> est utilisé, sinon l'overlay
 // sera décalé horizontalement par rapport à l'image affichée.
@@ -166,10 +167,12 @@ export const useFacePointage = () => {
   // ⭐ HISTORIQUE DES POINTAGES (inchangé)
   // ============================================================
 
+  
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const wifiMacAddress = await getSystemWifiMac();
+      // Utiliser le cache au lieu d'appeler directement getSystemWifiMac
+      const wifiMacAddress = await getCachedMacAddress();
       if (!wifiMacAddress) {
         setHistory([]);
         return;
@@ -183,6 +186,8 @@ export const useFacePointage = () => {
       setHistoryLoading(false);
     }
   }, []);
+
+
 
   useEffect(() => {
     fetchHistory();
