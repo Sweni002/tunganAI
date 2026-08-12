@@ -13,6 +13,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 from datetime import date
 import os
+import redis
 
 load_dotenv()
 socketio = SocketIO(
@@ -55,7 +56,29 @@ def create_app():
 
     # Initialisation
     db.init_app(app)
+    
+    
+    redis_url = os.getenv(
+        "REDIS_URL",
+        "redis://127.0.0.1:6379/0"
+    )
+
+    redis_client = redis.from_url(
+        redis_url,
+        decode_responses=False
+    )
+
+
+    try:
+      redis_client.ping()
+      print("✅ Redis connecté")
+    except Exception as e:
+      print(f"❌ Redis indisponible : {e}")
+      
+    app.extensions["redis"] = redis_client
+    
     from utils.cache import register_cache_invalidation
+
     register_cache_invalidation(db)
     migrate.init_app(app, db)
     socketio.init_app(app)
@@ -150,7 +173,7 @@ def create_app():
 
     # Chargement embeddings pour la reconnaissance faciale
     with app.app_context():
-
+        
         print("✅ Toutes les tables SQLAlchemy ont été créées si elles n'existaient pas !")
         face_utils.preload_embeddings_threadsafe()
         return app

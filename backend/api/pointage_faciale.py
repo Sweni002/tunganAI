@@ -4,7 +4,7 @@ from models import db, MacNonAutorisee,Conge,JournalTentativePointage,Client, Re
 from models.autorisationAbsence import AutorisationAbsence
 from models.pointages import Pointage
 from models.personnels import Personnels
-from flask import send_file
+from flask import send_file ,current_app
 from models.journalPointage import EtapePointage ,StatutPointage,TypePointage
 from io import BytesIO
 import re
@@ -15,6 +15,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 import os
 import shutil
+import hashlib
 from unittest.mock import patch
 from sqlalchemy import func, case, select, union_all, literal
 from utils.face_utils import verifier_face,update_personnel_embedding ,get_service_rows ,_detect_single_face
@@ -30,7 +31,9 @@ import traceback
 import io
 import cv2
 import numpy as np
- 
+import logging
+
+logger = logging.getLogger(__name__)
  
 bp = Blueprint("facial_pointage_api", __name__)
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -876,22 +879,91 @@ def get_notifications_service():
 
 @bp.route('/metrics/recent-performance', methods=['GET'])
 def get_recent_performance_metrics():
+
     mac_param = request.args.get('mac', type=str)
 
-    # Temps de référence (à adapter selon ton système)
+    redis = current_app.extensions["redis"]
+
+    # ==========================================
+    # GENERATION DU CACHE METRICS
+    # ==========================================
+
+    metrics_gen = redis.get(
+        "assiduite:v1:gen:metrics"
+    )
+
+    metrics_gen = int(metrics_gen or 0)
+
+    # ==========================================
+    # CONSTRUCTION DE LA CLE
+    # ==========================================
+
+    mac_key = mac_param or "all"
+
+    digest = hashlib.sha1(
+        mac_key.encode("utf-8")
+    ).hexdigest()[:16]
+
+    cache_key = (
+        f"assiduite:v1:"
+        f"metrics_recent_performance:"
+        f"{metrics_gen}:"
+        f"{digest}"
+    )
+
+    # ==========================================
+    # CACHE HIT
+    # ==========================================
+
+    cached = redis.get(cache_key)
+
+    if cached is not None:
+
+        logger.info(
+            "[Redis Cache] HIT %s",
+            cache_key
+        )
+
+        response = current_app.response_class(
+            cached,
+            mimetype="application/json"
+        )
+
+        response.headers["X-Cache"] = "HIT"
+
+        return response
+
+    # ==========================================
+    # CACHE MISS
+    # ==========================================
+
+    logger.info(
+        "[Redis Cache] MISS %s",
+        cache_key
+    )
+
+    # ==========================================
+    # CALCUL
+    # ==========================================
+
     TEMPS_NORMAL_MS = 800
 
     query = JournalTentativePointage.query.filter(
-        JournalTentativePointage.etape == EtapePointage.ENREGISTREMENT
+        JournalTentativePointage.etape
+        == EtapePointage.ENREGISTREMENT
     )
 
     if mac_param:
         query = query.filter(
-            JournalTentativePointage.mac_address == mac_param
+            JournalTentativePointage.mac_address
+            == mac_param
         )
 
     recent_logs = (
-        query.order_by(JournalTentativePointage.id.desc())
+        query
+        .order_by(
+            JournalTentativePointage.id.desc()
+        )
         .limit(15)
         .all()
     )
@@ -904,49 +976,115 @@ def get_recent_performance_metrics():
     current_mac = (
         mac_param
         if mac_param
-        else (recent_logs[-1].mac_address if recent_logs else "Toutes")
+        else (
+            recent_logs[-1].mac_address
+            if recent_logs
+            else "Toutes"
+        )
     )
 
     for log in recent_logs:
+
         detail = {}
 
         if log.temps_detail:
+
             try:
-                detail = json.loads(str(log.temps_detail))
+                detail = json.loads(
+                    str(log.temps_detail)
+                )
+
             except Exception:
                 detail = {}
 
-        visual_ms = detail.get("visuel", 0)
-        identification_ms = detail.get("identification", 0)
+        visual_ms = detail.get(
+            "visuel",
+            0
+        )
+
+        identification_ms = detail.get(
+            "identification",
+            0
+        )
 
         total_ms = log.temps_ms
-        if total_ms is None:
-            total_ms = visual_ms + identification_ms
 
-        total_times.append(round(float(total_ms), 1))
-        heures.append(log.created_at.strftime("%Hh%M"))
+        if total_ms is None:
+
+            total_ms = (
+                visual_ms
+                + identification_ms
+            )
+
+        total_times.append(
+            round(
+                float(total_ms),
+                1
+            )
+        )
+
+        heures.append(
+            log.created_at.strftime(
+                "%Hh%M"
+            )
+        )
 
     if not total_times:
+
         total_times = [0]
         heures = ["--"]
 
-    moyenne_actuelle = round(sum(total_times) / len(total_times), 1)
+    moyenne_actuelle = round(
+        sum(total_times)
+        / len(total_times),
+        1
+    )
 
-    # Indice de vitesse par rapport à la vitesse normale
+    # ==========================================
+    # INDICE DE VITESSE
+    # ==========================================
+
     if moyenne_actuelle > 0:
-        indice_vitesse = round(TEMPS_NORMAL_MS / moyenne_actuelle, 2)
+
+        indice_vitesse = round(
+            TEMPS_NORMAL_MS
+            / moyenne_actuelle,
+            2
+        )
+
     else:
+
         indice_vitesse = 0
 
-    # Texte explicatif
-    if indice_vitesse > 1:
-        interpretation = f"{indice_vitesse}× plus rapide que la normale"
-    elif indice_vitesse < 1:
-        interpretation = f"{round(1/indice_vitesse,2)}× plus lent que la normale"
-    else:
-        interpretation = "Performance normale"
+    # ==========================================
+    # INTERPRETATION
+    # ==========================================
 
-    return jsonify({
+    if indice_vitesse > 1:
+
+        interpretation = (
+            f"{indice_vitesse}× "
+            f"plus rapide que la normale"
+        )
+
+    elif 0 < indice_vitesse < 1:
+
+        interpretation = (
+            f"{round(1 / indice_vitesse, 2)}× "
+            f"plus lent que la normale"
+        )
+
+    else:
+
+        interpretation = (
+            "Performance normale"
+        )
+
+    # ==========================================
+    # RESULTAT
+    # ==========================================
+
+    result = {
         "macAddress": current_mac,
 
         "vitesseTraitement": {
@@ -967,8 +1105,37 @@ def get_recent_performance_metrics():
             "data": total_times,
             "color": "#7fd8ff"
         }
-    })
-       
+    }
+
+    # ==========================================
+    # REDIS SET
+    # ==========================================
+
+    redis.set(
+        cache_key,
+        json.dumps(
+            result,
+            ensure_ascii=False
+        )
+    )
+
+    logger.info(
+        "[Redis Cache] SET %s",
+        cache_key
+    )
+
+    response = current_app.response_class(
+        json.dumps(
+            result,
+            ensure_ascii=False
+        ),
+        mimetype="application/json"
+    )
+
+    response.headers["X-Cache"] = "MISS"
+
+    return response
+   
 import time
 
 import json
@@ -1637,8 +1804,6 @@ def a_autorisation_retard(personnel_id, now_date, periode_actuelle):
 ROBOFLOW_WORKSPACE_NAME = os.environ.get("ROBOFLOW_WORKSPACE_NAME", "seni-ynwa")
 ROBOFLOW_WORKFLOW_ID = os.environ.get("ROBOFLOW_WORKFLOW_ID", "general-segmentation-api-21")
 ROBOFLOW_CLASSES = os.environ.get("ROBOFLOW_CLASSES", "helmet, mask, face, hat, cap")
-
-
 
 
 def to_time(dt):
@@ -2643,7 +2808,8 @@ def facial_client_step4_enregistrer():
 
             # ---------------- Cleanup ----------------
             t_cleanup = perf_counter()
-            _cleanup_temp_image(image_path)
+            
+          
             times["cleanup_ms"] = round((perf_counter() - t_cleanup) * 1000, 3)
 
             retard_minutes = retard_minutes if 'retard_minutes' in locals() else 0
@@ -2659,6 +2825,7 @@ def facial_client_step4_enregistrer():
 
             _log(StatutPointage.SUCCES, message,
                  idpers=id_value, role=role, score_face=score_face, second_score=second_score)
+            _cleanup_temp_image(image_path)
 
             return jsonify({
                 "message": message,
@@ -3066,11 +3233,12 @@ def facial_client_sortie_step4_enregistrer():
 
             # ---------------- Cleanup ----------------
             t_cleanup = perf_counter()
-            _cleanup_temp_image(image_path)
+            
             times["cleanup_ms"] = round((perf_counter() - t_cleanup) * 1000, 3)
 
             _log(StatutPointage.SUCCES, f"Sortie enregistrée avec succès pour {personnel.matricule}",
                  idpers=id_value, role=role, score_face=score_face, second_score=second_score)
+            _cleanup_temp_image(image_path)
 
             times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
 

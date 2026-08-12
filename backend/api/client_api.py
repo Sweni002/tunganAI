@@ -6,53 +6,206 @@ from models.journalPointage import StatutPointage ,EtapePointage
 from models import db ,JournalTentativePointage
 from werkzeug.security import check_password_hash
 from flask_cors import cross_origin
+import json
+import hashlib
+from flask import current_app
+import logging
 
+logger = logging.getLogger(__name__)
+ 
+ 
 bp = Blueprint('clients_api', __name__)
 
 
 @bp.route("/history", methods=["GET"])
 def facial_client_history():
+
     mac_address = request.args.get("mac_address")
 
     if not mac_address:
-        return jsonify({"error": "mac_address manquant"}), 400
+        return jsonify({
+            "error": "mac_address manquant"
+        }), 400
+
+    redis = current_app.extensions["redis"]
+
+    # ==========================================
+    # GENERATION HISTORY
+    # ==========================================
+
+    history_gen = redis.get(
+        "assiduite:v1:gen:history"
+    )
+
+    history_gen = int(
+        history_gen or 0
+    )
+
+    # ==========================================
+    # HASH MAC
+    # ==========================================
+
+    mac_hash = hashlib.sha1(
+        mac_address.encode("utf-8")
+    ).hexdigest()[:16]
+
+    cache_key = (
+        f"assiduite:v1:"
+        f"history:"
+        f"{history_gen}:"
+        f"{mac_hash}"
+    )
+
+    # ==========================================
+    # CACHE HIT
+    # ==========================================
+
+    cached = redis.get(cache_key)
+
+    if cached is not None:
+
+        logger.info(
+            "[Redis Cache] HIT %s",
+            cache_key
+        )
+
+        response = current_app.response_class(
+            cached,
+            mimetype="application/json"
+        )
+
+        response.headers["X-Cache"] = "HIT"
+
+        return response
+
+    # ==========================================
+    # CACHE MISS
+    # ==========================================
+
+    logger.info(
+        "[Redis Cache] MISS %s",
+        cache_key
+    )
+
+    # ==========================================
+    # REQUETE DB
+    # ==========================================
 
     entries = (
         JournalTentativePointage.query
-        .filter_by(mac_address=mac_address)
-        .order_by(JournalTentativePointage.created_at.desc())
+        .filter_by(
+            mac_address=mac_address
+        )
+        .order_by(
+            JournalTentativePointage.created_at.desc()
+        )
         .limit(15)
         .all()
     )
 
     def build_status(entry):
-        if entry.statut == StatutPointage.SUCCES and entry.etape == EtapePointage.ENREGISTREMENT:
+
+        if (
+            entry.statut == StatutPointage.SUCCES
+            and entry.etape == EtapePointage.ENREGISTREMENT
+        ):
             return "Validé"
+
         return "Erreur"
 
     def build_photo_url(entry):
+
         if not entry.photo:
             return None
-        return f"/api/clients/history/{entry.id}/photo"
+
+        return (
+            f"/api/clients/history/"
+            f"{entry.id}/photo"
+        )
 
     history = []
+
     for entry in entries:
-        personnel = Personnels.query.get(entry.idpers) if entry.idpers else None
+
+        personnel = (
+            Personnels.query.get(entry.idpers)
+            if entry.idpers
+            else None
+        )
 
         history.append({
             "id": entry.id,
-            "matricule": personnel.matricule if personnel else None,
-            "role": personnel.role if personnel else entry.role,
+
+            "matricule": (
+                personnel.matricule
+                if personnel
+                else None
+            ),
+
+            "role": (
+                personnel.role
+                if personnel
+                else entry.role
+            ),
+
             "status": build_status(entry),
-            "type_pointage": entry.type_pointage.value if entry.type_pointage else None,
-            "name": f"{personnel.nom} {personnel.prenom}" if personnel else None,
+
+            "type_pointage": (
+                entry.type_pointage.value
+                if entry.type_pointage
+                else None
+            ),
+
+            "name": (
+                f"{personnel.nom} {personnel.prenom}"
+                if personnel
+                else None
+            ),
+
             "photo": build_photo_url(entry),
-            "date": entry.created_at.strftime("%d/%m/%Y"),
-            "time": entry.created_at.strftime("%H:%M"),
+
+            "date": entry.created_at.strftime(
+                "%d/%m/%Y"
+            ),
+
+            "time": entry.created_at.strftime(
+                "%H:%M"
+            ),
+
             "message": entry.message,
         })
 
-    return jsonify(history), 200
+    # ==========================================
+    # REDIS SET
+    # ==========================================
+
+    payload = json.dumps(
+        history,
+        ensure_ascii=False
+    )
+
+    redis.set(
+        cache_key,
+        payload
+    )
+
+    logger.info(
+        "[Redis Cache] SET %s",
+        cache_key
+    )
+
+    # ==========================================
+    # RESPONSE
+    # ==========================================
+
+    response = current_app.response_class(
+        payload,
+        mimetype="application/json"
+    )
+
+    response.headers["X-Cache"] = "MISS"
+
+    return response
 
 @bp.route("/history/<int:entry_id>/photo", methods=["GET"])
 def facial_client_history_photo(entry_id):
