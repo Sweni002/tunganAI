@@ -6,7 +6,7 @@
 // l'utilisateur : il démarre seul avec la session Windows et sert
 // simplement cette info en HTTP sur 127.0.0.1.
 
-const MAC_AGENT_URL = "http://127.0.0.1:17532/mac-address";
+const MAC_AGENT_URL = import.meta.env.VITE_MAC_AGENT_URL;
 
 /**
  * Détecte un vrai appareil mobile (téléphone/tablette) via le user-agent,
