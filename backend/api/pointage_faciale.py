@@ -32,6 +32,7 @@ import io
 import cv2
 import numpy as np
 import logging
+from utils.cache import cached_assiduite_date ,cached_assiduite_date_range ,cached_assiduite_stats
 
 logger = logging.getLogger(__name__)
  
@@ -3724,6 +3725,7 @@ def serialize_pointage(pt):
     }
     
 @bp.route("/facial/par_date_division", methods=["GET"])
+@cached_assiduite_date
 def get_pointages_par_date_division_et_service():
     date_str = request.args.get("date")
     iddiv_str = request.args.get("iddiv")
@@ -3786,6 +3788,7 @@ from datetime import date
 from sqlalchemy import func, case, and_ ,distinct
 
 @bp.route("/stats", methods=["GET"])
+@cached_assiduite_stats
 def get_stats_service():
 
     idserv = request.args.get("idserv", type=int)
@@ -4061,7 +4064,9 @@ def get_stats_service():
         "taux_presence": taux_presence,
     }), 200
     
+
 @bp.route("/faciall/par_date", methods=["GET"])
+@cached_assiduite_date
 def get_pointages_par_date_par_service():
     date_str = request.args.get("date")
     idserv_str = request.args.get("idserv")
@@ -4106,6 +4111,7 @@ def get_pointages_par_date_par_service():
     }), 200
     
 @bp.route("/faciall/par_date_personnel", methods=["GET"])
+@cached_assiduite_date
 def get_pointages_personnel_par_date():
     from datetime import datetime
     from models import Pointage, Personnels
@@ -4371,6 +4377,7 @@ def parse_cursor_date(raw):
     
 
 @bp.route("/faciall/par_dates", methods=["GET"])
+@cached_assiduite_date_range
 def get_pointages_par_dates_par_service():
     date_debut_str = request.args.get("dateDebut")
     date_fin_str = request.args.get("dateFin")
