@@ -8,7 +8,10 @@ import {
   formatCoveringResult,
 } from "../services/roboflowService";
 import { socket } from "../../../socket";
-import { getSystemWifiMac } from "./macAgentService";
+import {
+  getSystemWifiMac, checkMacAgent,
+  openMacAgentInstaller,
+} from "./macAgentService";
 import {
   getFaceLandmarker,
   nextTimestamp,
@@ -119,6 +122,9 @@ export const useFacePointage = () => {
   const [modalType, setModalType] = useState("success");
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [macAgentInstalled, setMacAgentInstalled] = useState(false);
+  const [macAgentInstalling, setMacAgentInstalling] = useState(false);
+  const [macAgentChecking, setMacAgentChecking] = useState(true);
 
   // Références
   const canvasRef = useRef(null);
@@ -167,7 +173,7 @@ export const useFacePointage = () => {
   // ⭐ HISTORIQUE DES POINTAGES (inchangé)
   // ============================================================
 
-  
+
   const fetchHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
@@ -330,6 +336,33 @@ export const useFacePointage = () => {
       }
     }, 5000);
     return () => clearInterval(cleanup);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const verifyMacAgent = async () => {
+      const result = await checkMacAgent();
+      console.log(result)
+
+      if (cancelled) return;
+
+      // Sur mobile, on ne demande pas l'installation
+      if (result.mobile) {
+        setMacAgentInstalled(true);
+        setMacAgentChecking(false);
+        return;
+      }
+
+      setMacAgentInstalled(result.running);
+      setMacAgentChecking(false);
+    };
+
+    verifyMacAgent();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ============================================================
@@ -582,6 +615,31 @@ export const useFacePointage = () => {
     }
   };
 
+  const handleInstallMacAgent = async () => {
+    if (macAgentInstalling) return;
+
+    try {
+      setMacAgentInstalling(true);
+
+      await openMacAgentInstaller();
+
+    } catch (error) {
+      console.error(
+        "[mac-agent] Erreur installation :",
+        error
+      );
+
+      setSnackbarMessage(
+        "Impossible de télécharger l'agent. Vérifiez votre connexion."
+      );
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+
+    } finally {
+      setMacAgentInstalling(false);
+    }
+  };
+
   // ============================================================
   // ⭐ RETOUR DU HOOK (API publique identique)
   // ============================================================
@@ -611,5 +669,10 @@ export const useFacePointage = () => {
     closeSnackbar,
     closeModal,
     setWebcamReady,
+    macAgentInstalled,
+    macAgentChecking,
+    openMacAgentInstaller,
+    macAgentInstalling,
+    handleInstallMacAgent,
   };
 };

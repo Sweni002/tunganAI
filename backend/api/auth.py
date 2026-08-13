@@ -28,6 +28,7 @@ PUBLIC_ROUTES = {
     "auth.reset_password_responsable",
     "serve_pki_file",
     "uploaded_file",
+    "download_mac_agent",
     "facial_pointage_api.pointage_facial_client",
     "facial_pointage_api.check_face_covering",
     "facial_pointage_api.sortie_facial_client",

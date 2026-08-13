@@ -3,11 +3,21 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMediaQuery } from "react-responsive";
+import {
+    Card,
+    CardContent,
+    Typography,
+    Button,
+    Box,
+    CircularProgress,
+} from "@mui/material";
 
 import { useFacePointage } from "../services/useFacePointage";
-import { useLoginBackground } from "../services/useLoginBackground";
 import PointagePageDesktop from "./PointagePageDesktop";
 import PointagePageMobile from "./PointagePageMobile";
+import MacAgentInstallationCard from "./MacAgentInstallationCard";
+import Loading from "../../pointage/Loading";
+import SplashScreen from "../../../SplashScreen";
 
 // ---------------------------------------------------------------
 // Orchestrateur : appelle les hooks partagés UNE SEULE FOIS (webcam,
@@ -19,7 +29,7 @@ const PointagePageContent = () => {
     const isLargeScreen = useMediaQuery({ minWidth: 1200 });
     const [valueBtn, setValueBtn] = useState("entree");
 
-    useLoginBackground(isLargeScreen);
+
 
     const {
         modelsLoaded,
@@ -45,6 +55,11 @@ const PointagePageContent = () => {
         handleStartPointage,
         closeSnackbar,
         closeModal,
+        macAgentInstalled,
+        macAgentChecking,
+        openMacAgentInstaller,
+        macAgentInstalling,
+        handleInstallMacAgent,
     } = useFacePointage();
 
     const handleChangeBtn = (event, newValue) => {
@@ -82,6 +97,23 @@ const PointagePageContent = () => {
         history,
         historyLoading,
     };
+
+  if (macAgentChecking) {
+  return (
+    <SplashScreen 
+      
+    />
+  );
+}
+
+    if (!macAgentInstalled) {
+        return (
+            <MacAgentInstallationCard
+                macAgentInstalling={macAgentInstalling}
+                handleInstallMacAgent={handleInstallMacAgent}
+            />
+        );
+    }
 
     if (isLargeScreen) {
         return <PointagePageDesktop {...sharedProps} goHome={goHome} />;

@@ -1,0 +1,37 @@
+{
+  "name": "mac-agent",
+  "version": "1.0.0",
+  "description": "SRSP Mac Address Agent",
+  "author": "SRSP",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "systeminformation": "^5.27.11"
+  },
+  "devDependencies": {
+    "electron": "43.4.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "mg.srsp.macagent",
+    "productName": "SRSP Mac Agent",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false
+    }
+  }
+}
