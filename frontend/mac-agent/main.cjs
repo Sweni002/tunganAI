@@ -25,10 +25,41 @@ const PORT = 17532;
 const ALLOWED_ORIGINS = [
   "http://127.0.0.1:5173",
   "http://localhost:5173",
-
-  // Ajouter l'origine de production ici si nécessaire :
-  // "https://pointage.srsp.mg",
 ];
+
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  // Autoriser explicitement localhost
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return true;
+  }
+
+  try {
+    const url = new URL(origin);
+
+    // Autoriser :
+    // http://192.168.88.*
+    // https://192.168.88.*
+    //
+    // avec n'importe quel port
+    const is192Network =
+      /^192\.168\.88\.\d{1,3}$/.test(url.hostname);
+
+    if (
+      is192Network &&
+      (url.protocol === "http:" || url.protocol === "https:")
+    ) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    return false;
+  }
+}
 
 let serverInstance = null;
 
@@ -114,13 +145,7 @@ function startHttpServer() {
   expressApp.use(
     cors({
       origin: (origin, callback) => {
-        // Autoriser les requêtes sans Origin
-        // (outils locaux, curl, etc.)
-        if (!origin) {
-          return callback(null, true);
-        }
-
-        if (ALLOWED_ORIGINS.includes(origin)) {
+        if (isAllowedOrigin(origin)) {
           return callback(null, true);
         }
 
