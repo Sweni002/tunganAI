@@ -20,3 +20,11 @@ Thumbs.db
 
 backend/uploads/
 face_db1/
+
+# Uploads temporaires
+backend/temp_upload/temp_upload/
+backend/temp_upload/temp_upload/*
+
+# Fichiers Excel
+*.xlsx
+*.xls

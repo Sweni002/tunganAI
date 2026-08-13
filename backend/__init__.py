@@ -16,12 +16,18 @@ import os
 import redis
 
 load_dotenv()
+SOCKET_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# Autoriser toutes les IP du réseau 192.168.88.*
+for i in range(1, 255):
+    SOCKET_ALLOWED_ORIGINS.append(f"http://192.168.88.{i}")
+    SOCKET_ALLOWED_ORIGINS.append(f"https://192.168.88.{i}")
+
 socketio = SocketIO(
-    cors_allowed_origins=[
-        "http://localhost:5173",
-        "http://192.168.43.73:5173",
-        "http://127.0.0.1:5173",
-    ],
+    cors_allowed_origins=SOCKET_ALLOWED_ORIGINS,
     async_mode="threading",
 )
 
@@ -92,9 +98,10 @@ def create_app():
     app,
     supports_credentials=True,
     origins=[
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        "http://192.168.43.73:5173",
+        r"^https?://192\.168\.88\.[0-9]{1,3}(?::[0-9]+)?$",
+        r"^http://127\.0\.0\.1:5173$",
+        r"^http://localhost:5173$",
+         r"^http://127.0.0.1:5173$",
     ],
 )
 

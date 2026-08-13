@@ -14,13 +14,15 @@ export const AuthProvider = ({ children }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loading, setLoading] = useState(true); // 👈 ÉTAPE 1 : Ajouter l'état loading
   const login = async (matricule, mot_de_passe) => {
+
+    console.log(`${API_URL}/api/auth/login`)
     const res = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ matricule, mot_de_passe }),
     });
-
+  
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Erreur login");
  localStorage.setItem("isLoggedIn", "true");
