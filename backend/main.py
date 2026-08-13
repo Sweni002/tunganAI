@@ -7,10 +7,24 @@ app = create_app()
 
 
 @app.route('/uploads/<path:filename>')
-def uploaded_file(filename):
+def a(filename):
     uploads_dir = os.path.join(app.root_path, 'uploads')
     return send_from_directory(uploads_dir, filename)
 
+@app.route("/downloads/mac-agent", methods=["GET"])
+def download_mac_agent():
+    downloads_dir = os.path.join(
+        app.root_path,
+        "downloads"
+    )
+
+    return send_from_directory(
+        downloads_dir,
+        "SRSP.exe",
+        as_attachment=True,
+        download_name="Mac-Agent-Setup-1.0.0.exe"
+    )
+    
 
 if __name__ == '__main__':
     with app.app_context():
