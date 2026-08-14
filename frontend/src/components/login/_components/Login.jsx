@@ -179,7 +179,16 @@ const Login = () => {
     const role = user.role;
 
     console.log("MONO-RÔLE :", role);
+// 🔥 CORRECTIF COMPLET : même structure imbriquée que CAS 1 / fetchMe()
+const currentUser = {
+  ...user,
+  role,
+  admin: role === "admin" ? user : null,
+  responsable: role === "responsable" ? user : null,
+  personnel: role === "personnel" ? user : null,
+};
 
+setUser(currentUser);
     localStorage.setItem(
       "user",
       JSON.stringify(user)
