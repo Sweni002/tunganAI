@@ -19,6 +19,7 @@ import Lottie from "lottie-react";
 import SuccessLottie from "../../../assets/success.json";
 import ErrorLottie from "../../../assets/error.json";
 import styles from "../login.module.css";
+import M3WavyLoader from "./M3WavyLoader";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -59,7 +60,7 @@ const ProcessingBackdrop = ({ open, step = 0 }) => {
         backdropFilter: "blur(23px)",
       }}
     >
-      <span className={styles.loader}></span>
+   <M3WavyLoader size={100} color="#00c4cc" isThick />
 
       <div style={{ textAlign: "center", padding: "0 24px" }}>
         <Fade in key={step} timeout={400}>
