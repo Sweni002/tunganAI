@@ -330,7 +330,7 @@ const fabIcon =
       )}
       <div
         style={{
-          paddingTop: isMobile ? "0px" : showHeader ? "130px" : 0,
+          paddingTop: isMobile ? "0px" : showHeader ? "160px" : 0,
         }}
       >
         {" "}

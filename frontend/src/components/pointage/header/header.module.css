@@ -8,19 +8,22 @@
 .darkNavbar ul li {
   color: rgb(224, 224, 224) !important;
 }
-.darkNavbar ul li:hover{
-    color:  #1f7181 !important;
+
+.darkNavbar ul li:hover {
+  color: #1f7181 !important;
 }
 
 .darkIcon {
   color: rgb(224, 224, 224) !important;
 }
 
-.darkIcon:hover{
-      color:  #1f7181 !important;
+.darkIcon:hover {
+  color: #1f7181 !important;
 }
+
 /* Par défaut */
-.nom h3, .nom p {
+.nom h3,
+.nom p {
   margin: 0;
   color: black;
 }
@@ -28,14 +31,15 @@
 /* Mode sombre */
 .nomDark h3,
 .nomDark p {
-  color:rgb(224, 224, 224) !important;
+  color: rgb(224, 224, 224) !important;
 }
+
 .darkText {
   color: rgb(224, 224, 224) !important;
 }
 
-.darkText:hover{
-    color:  #14535f !important;
+.darkText:hover {
+  color: #14535f !important;
 }
 
 
@@ -44,8 +48,8 @@
   color: white !important;
 }
 
-.iconDark:hover{
-      color:  #14535f !important;
+.iconDark:hover {
+  color: #14535f !important;
 }
 
 /* ============================================================
@@ -82,8 +86,14 @@
 }
 
 /* Textes / éléments du header */
-.facegov span:first-child { color: white;; }
-.facegov span:last-child { color: #1a3797ff;  }
+.facegov span:first-child {
+  color: white;
+  ;
+}
+
+.facegov span:last-child {
+  color: #1a3797ff;
+}
 
 
 .headerHaut {
@@ -99,7 +109,8 @@
   padding: 0 20px;
 
   /* --- Propriétés de transition fluide --- */
-  max-height: 80px; /* Adaptez à la hauteur réelle max de votre header */
+  max-height: 150px;
+  /* Adaptez à la hauteur réelle max de votre header */
   opacity: 1;
   overflow: hidden;
   transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
@@ -115,17 +126,18 @@
 }
 
 
-.images{
-display: flex;
-align-items: center;
-gap: 0px;
+.images {
+  display: flex;
+  align-items: center;
+  gap: 0px;
 }
+
 .cardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 3px;
-  width:100%;
+  padding: 15px;
+  width: 100%;
   max-width: 1700px;
   margin: 0 auto;
 }
@@ -133,25 +145,27 @@ gap: 0px;
 
 .navbar {
   width: 100%;
- 
+
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
 
   user-select: none;
-  background-image: linear-gradient(90deg,#00c4cc,#8b69b8);
-padding: 5px;
+  background-image: linear-gradient(90deg, #00c4cc, #8b69b8);
+  padding: 10px;
+
   color: white;
 }
 
-.facegov span{
+.facegov span {
 
   font-size: 1.5rem;
 }
 
 .logo {
-  width: 68px;          /* taille unique */
+  width: 68px;
+  /* taille unique */
   height: 44px;
   display: flex;
   align-items: center;
@@ -165,168 +179,173 @@ padding: 5px;
 }
 
 
-.logo2{
- 
-         width:68px;
-    height:  44px;
-    display: flex;
-    align-items: center;
-  
+.logo2 {
+
+  width: 68px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+
 }
 
 
 
-.logo2 img{
-    object-fit: contain;
-    width: 100%;
-    height: 100%;
+.logo2 img {
+  object-fit: contain;
+  width: 100%;
+  height: 100%;
 
 }
 
 
 .menu {
-    width: 100%;
- 
-}
-.menu ul{
-  
- display: flex;
- align-items: center;
- justify-content: space-around;
- list-style-type: none;
-}
-
-.menu ul li{
-    display: flex;
-      
-    align-items: center;
-justify-content: center;
-    width: 100%;
-    color: #fff ;
-     font-size: 0.9rem;
-    cursor: pointer;
-     transition:all 1.1 ease;
-gap: 15px;
-    padding:  8px 0px;
+  width: 100%;
 
 }
 
-.menu ul li i:hover{
-       color: #259eb6;
-   
+.menu ul {
+
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  list-style-type: none;
+
+}
+
+.menu ul li {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 1.1 ease;
+  gap: 15px;
+  padding: 10px 0;
+
+}
+
+.menu ul li i:hover {
+  color: #259eb6;
+
 }
 
 
 .icon {
-    
-    display: flex;
-    align-items: center;
-    gap: 10px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.icon i{
-font-size: 0.9rem;
+.icon i {
+  font-size: 0.9rem;
 }
 
 .compte {
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-     padding-right: 20px;
-    width: 20%;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-right: 20px;
+  width: 20%;
+  gap: 8px;
 }
 
 .avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
- 
-    padding-left: 17px;
-    padding-right: 15px;
-    cursor: pointer;
-      position: relative; /* nécessaire pour ::after */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  padding-left: 17px;
+  padding-right: 15px;
+  cursor: pointer;
+  position: relative;
+  /* nécessaire pour ::after */
   border: 1px solid transparent;
 
   transition: all 0.3s ease;
 }
 
-.avatar:hover{
-     border: 1px solid #273a77;
- border-radius: 5px;
-   
-}
-
-.nom{
-    margin-top: 5px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap:  5px;
-}
-
-
-.nom h3{
-    font-weight: normal;
-    font-size:0.9rem;
-    color: #273a77;
-      animation: fadeIn 1s ease-in-out;
+.avatar:hover {
+  border: 1px solid #273a77;
+  border-radius: 5px;
 
 }
 
-.nom p{
-    font-size: 0.8rem;
-    color:  #a7a6a6;
+.nom {
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+
+.nom h3 {
+  font-weight: normal;
+  font-size: 0.9rem;
+  color: #273a77;
+  animation: fadeIn 1s ease-in-out;
+
+}
+
+.nom p {
+  font-size: 0.8rem;
+  color: #a7a6a6;
 }
 
 
 
-.compte i{
-    font-size: 23px;
-    color: black;
-    cursor: pointer;
+.compte i {
+  font-size: 23px;
+  color: black;
+  cursor: pointer;
 }
+
 .compte i:hover {
-       color: #259eb6;
+  color: #259eb6;
 
 }
 
 .gauche {
- 
-    display: flex;
-    align-items: center;
-width: 100%;
-max-width: 1400px;
-    justify-content: space-between;
-  }
+
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 1400px;
+  justify-content: space-between;
+}
 
 .iconWrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-width: 100%;
+  width: 100%;
 }
 
 
 
 /* Rotation de l'icône */
 .iconWrapper i {
-  
-    display: inline-block;
-    
+
+  display: inline-block;
+
 
   transition: transform 0.3s ease, color 0.3s ease;
 }
 
 .iconWrapper:hover span,
 .iconWrapper:hover i {
-    color: #259eb6;
+  color: #259eb6;
 }
+
 /* Rotation de l'icône si tu veux garder l'effet */
 .iconWrapper:hover i {
-    transform: rotate(180deg);
+  transform: rotate(180deg);
 }
 
 
@@ -335,16 +354,16 @@ width: 100%;
 /* Optionnel : styliser le texte et l'icône */
 .iconWrapper span {
 
-  color: #259eb6 ;
+  color: #259eb6;
 
 }
 
 .iconWrapper i {
-    color: #259eb6;
+  color: #259eb6;
 
   transition: transform 0.3s ease;
   position: relative;
- }
+}
 
 
 
@@ -352,114 +371,122 @@ width: 100%;
 
 .dialog {
 
- 
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    width: 100%;
-    height:  67px;
-    padding: 7px;
-    padding-left: 1px;
-    background-color: transparent;
-    border-radius: 10px;
-    border: 3px solid rgba(0,0,0,0.1);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  width: 100%;
+  height: 67px;
+  padding: 7px;
+  padding-left: 1px;
+  background-color: transparent;
+  border-radius: 10px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
 }
 
 .dialog input {
-    width: 70%;
-    border: none;
-    padding: 0px;
-    font-size: 20px;
-    background-color: transparent;
-     outline: none; /* empêche la bordure orange */
+  width: 70%;
+  border: none;
+  padding: 0px;
+  font-size: 20px;
+  background-color: transparent;
+  outline: none;
+  /* empêche la bordure orange */
   box-shadow: none;
-    
+
 }
-.dialog i{
-    font-size: 23px;
+
+.dialog i {
+  font-size: 23px;
 
 }
 
 .dialog:hover {
-    border: 3px solid #259eb6;
+  border: 3px solid #259eb6;
 }
 
-.liste{
-    margin-top: 7px;
- 
-     
+.liste {
+  margin-top: 7px;
+
+
 }
 
-.resultat{
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 25px;
-    width: 100%;
+.resultat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 25px;
+  width: 100%;
 }
 
-.liste1{
-width: 98%;
-display: flex;
-align-items: center;
-justify-content: space-between;
-cursor: pointer;
+.liste1 {
+  width: 98%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
 }
 
-.liste1:hover{
-   color: #1f7181;
-    
-}
-.liste2 h3:hover{
-   color: #1f7181; 
+.liste1:hover {
+  color: #1f7181;
+
 }
 
-.liste2 p:hover{
-   color: #1f7181; 
-}
-.liste2{
-    display: flex;
-    flex-direction: column;
-    gap:  10px;
-    align-items: flex-start;
-    justify-content:center;
-     
-}
-.liste2 h3{
-    font-size: 21px;
-    color: black;
-}
-.liste2 p{
-
-    font-size: 18px;
-    color: gray;
+.liste2 h3:hover {
+  color: #1f7181;
 }
 
-.liste1 i{
-    font-size: 18px;
-    
+.liste2 p:hover {
+  color: #1f7181;
+}
+
+.liste2 {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: center;
+
+}
+
+.liste2 h3 {
+  font-size: 21px;
+  color: black;
+}
+
+.liste2 p {
+
+  font-size: 18px;
+  color: gray;
+}
+
+.liste1 i {
+  font-size: 18px;
+
 }
 
 .button1 {
   margin-top: 10px;
 }
+
 .button1 button {
-   padding: 12px ;
-    padding-left: 23px;
-    padding-right: 20px;
-    outline: none;
-    border: none;
-    overflow: hidden;
-    border-radius: 4px;
-    background-image: linear-gradient(90deg,#00c4cc,#8b69b8);
-  
-    box-shadow: 0 7px 7px rgba(0,0,0,0.1);
-    cursor: pointer;
+  padding: 12px;
+  padding-left: 23px;
+  padding-right: 20px;
+  outline: none;
+  border: none;
+  overflow: hidden;
+  border-radius: 4px;
+  background-image: linear-gradient(90deg, #00c4cc, #8b69b8);
+
+  box-shadow: 0 7px 7px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
 }
+
 .button1 button:hover {
- opacity: 0.8;
-    
+  opacity: 0.8;
+
 }
 
 @keyframes fadeIn {
@@ -482,75 +509,82 @@ cursor: pointer;
 .nom h3,
 .nom p,
 .icon i {
-    transition: all 0.2s ease-in-out; /* animation douce sur toutes interactions */
+  transition: all 0.2s ease-in-out;
+  /* animation douce sur toutes interactions */
 }
+
 .menu ul li {
-    position: relative;
+  position: relative;
 }
 
 
 
 
 @media (max-width:768px) {
-  .gauche{
+  .gauche {
     max-width: 768px;
   }
-  .menu ul{
+
+  .menu ul {
     gap: 10px;
     justify-content: center;
   }
-    .menu ul li{
-      flex-direction: column;
-      padding: 6px 0;
-      gap:7px;
-    }
 
-    .navbar{
-      padding: 1px;
-    }
+  .menu ul li {
+    flex-direction: column;
+    padding: 6px 0;
+    gap: 7px;
+  }
 
-    .compte{
-      display: none;
-    }
-  
-    .facegov span{
-      font-size: 1.3rem;
-  
-    }
-  
+  .navbar {
+    padding: 1px;
+  }
+
+  .compte {
+    display: none;
+  }
+
+  .facegov span {
+    font-size: 1.3rem;
+
+  }
+
 
 }
 
 
 @media (max-width:600px) {
- 
-.navbar{
-  padding: 8px;
- justify-content: flex-start;
-}
-  .menu span{
+
+  .navbar {
+    padding: 8px;
+    justify-content: flex-start;
+  }
+
+  .menu span {
     display: none;
 
   }
-  .menu i{
+
+  .menu i {
     font-size: 1.0rem;
- 
+
   }
 
 }
+
 .menu ul li {
   position: relative;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   border-radius: 8px;
 }
 
 .menu ul li:not(.active):hover {
-    background-color: rgba(37, 158, 182, 0.12);
-    color: #259eb6;
-      transition:all 1.1 ease;
-background-color: white;
-    
+  background-color: rgba(37, 158, 182, 0.12);
+  color: #259eb6;
+  transition: all 1.1 ease;
+  background-color: white;
+
 }
 
 
@@ -574,11 +608,13 @@ background-color: white;
 .menu ul li.active {
   position: relative;
 }
+
 @keyframes slideIn {
   from {
     width: 0;
     left: 50%;
   }
+
   to {
     width: 60%;
     left: 20%;
@@ -595,7 +631,7 @@ background-color: white;
 
 /* Style optionnel pour le MenuItem de Material UI pour garder la police Poppins */
 :global(.MuiMenuItem-root) {
-  font-family: 'Roboto Mono', monospace !important; 
+  font-family: 'Roboto Mono', monospace !important;
   font-size: 0.9rem !important;
 }
 
@@ -606,7 +642,7 @@ background-color: white;
 }
 
 .menu ul li i:hover {
-    color: #259eb6 !important; 
+  color: #259eb6 !important;
 }
 
 
@@ -614,7 +650,7 @@ background-color: white;
 
 .mobileHeader {
   width: 100%;
-  
+
   height: 60px;
   display: flex;
   align-items: center;
@@ -629,5 +665,6 @@ background-color: white;
 .left {
   display: flex;
   align-items: center;
-  flex-shrink: 0; /* empêche le bouton rond de se compresser */
+  flex-shrink: 0;
+  /* empêche le bouton rond de se compresser */
 }

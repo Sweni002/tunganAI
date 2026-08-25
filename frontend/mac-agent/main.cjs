@@ -43,10 +43,11 @@ function isAllowedOrigin(origin) {
     // Autoriser :
     // http://192.168.88.*
     // https://192.168.88.*
+    //10.4.111.55
     //
     // avec n'importe quel port
     const is192Network =
-      /^192\.168\.88\.\d{1,3}$/.test(url.hostname);
+      /^10\.4\.111\.\d{1,3}$/.test(url.hostname);
 
     if (
       is192Network &&

@@ -6,13 +6,15 @@ import { StyledBadge } from "../Header.styles";
 import { stringAvatar } from "../Header.utils";
 import AccountBadge from "./AccountBadge";
 import DarkModeSwitch from "../../DarkModeSwitch";
+import HeaderImage from "../../../../../src/assets/12.jpg";
+
+const HEADER_HEIGHT = 150; // doit correspondre au maxHeight de .headerHaut dans le CSS
 
 const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, handleAvatarClick }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
-      // Masque si le scroll dépasse 20px, réaffiche uniquement tout en haut
       if (window.scrollY > 20) {
         setIsVisible(false);
       } else {
@@ -36,41 +38,51 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
         : Logo2;
 
   return (
-    <div className={`${styles.headerHaut} ${!isVisible ? styles.hidden : ""}`}>
-      <div className={styles.cardHeader}>
-        {admin?.role !== "personnel" && (
-          <div className={styles.images}>
-            <div className={styles.logo2}>
-              <img
-                src={Logo}
-                alt="Logo service"
-                onError={(e) => (e.currentTarget.src = Logo)}
-              />
-            </div>
-          </div>
-        )}
+    <div
+      className={`${styles.headerHaut} ${!isVisible ? styles.hidden : ""}`}
+      style={{ position: "relative", overflow: "hidden" }}
+    >
+      <div className={styles.cardHeader} style={{ position: "relative" }}>
 
-        <div className={styles.facegov}>
-      <Typography
-    variant="h6"
-    component="h1"
-    sx={{
-        color: "#e8f6f8",
-        fontFamily: "'Roboto Mono', monospace",
-        fontWeight: 700,
-        letterSpacing: "1.5px",
-        textTransform: "uppercase",
-        background: "linear-gradient(90deg, #00b4db 0%, #0083b0 100%)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-    }}
->
-    {import.meta.env.VITE_APP_NAME}
-</Typography>
+        {/* BLOC GAUCHE : logo + titre côte à côte (au-dessus de l'image) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
+          {admin?.role !== "personnel" && (
+            <div className={styles.images}>
+              <div className={styles.logo2}>
+                <img
+                  src={Logo}
+                  alt="Logo service"
+                  onError={(e) => (e.currentTarget.src = Logo)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className={styles.facegov}>
+            <Typography
+              variant="h6"
+              component="h1"
+              sx={{
+                color: "#e8f6f8",
+                fontFamily: "'Roboto Mono', monospace",
+                fontWeight: 700,
+                letterSpacing: "1.5px",
+                textTransform: "uppercase",
+                background: "linear-gradient(90deg, #00b4db 0%, #0083b0 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              {import.meta.env.VITE_APP_NAME}
+            </Typography>
+          </div>
         </div>
 
         {isMobile && (
-          <div className={styles.mobileAvatar} style={{ gap: 10, display: "flex", alignItems: "center" }}>
+          <div
+            className={styles.mobileAvatar}
+            style={{ gap: 10, display: "flex", alignItems: "center", position: "relative", zIndex: 2 }}
+          >
             <DarkModeSwitch darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
             <StyledBadge
               onClick={handleAvatarClick}
@@ -99,9 +111,45 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
           </div>
         )}
 
-        <div className={styles.compte}>
-         
+        {/* BLOC IMAGE : bloc CENTRÉ, largeur limitée, flotte au milieu avec fondu des deux côtés */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "42%",           // largeur du bloc image : ajuste selon le rendu voulu
+            maxWidth: "600px",
+            height: HEADER_HEIGHT,
+            pointerEvents: "none",
+            zIndex: 1,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
+              maskImage:
+                "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
+            }}
+          >
+            <img
+              src={HeaderImage}
+              alt="Bannière"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          </div>
+        </div>
 
+        <div className={styles.compte} style={{ position: "relative", zIndex: 2 }}>
           {admin?.role === "admin" && (
             <AccountBadge
               styles={styles}
