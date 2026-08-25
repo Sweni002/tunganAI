@@ -131,9 +131,9 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
               width: "100%",
               height: "100%",
               WebkitMaskImage:
-                "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
+                "linear-gradient(to right, transparent 0%, black 25%, black 5%, transparent 100%)",
               maskImage:
-                "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
+                "linear-gradient(to right, transparent 0%, black 35%, black 35%, transparent 100%)",
             }}
           >
             <img

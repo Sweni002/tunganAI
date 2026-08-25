@@ -172,9 +172,7 @@ export function usePersonnelsController() {
   const goAjout = () => {
     if (!admin || !admin.responsable || !admin.responsable.idrh) return;
 
-    navigate("/global/ajout_perso", {
-      state: { idrh: admin.responsable.idrh, idserv: admin.responsable.idserv },
-    });
+    navigate("/global/ajout_perso");
   };
 
   useEffect(() => {
