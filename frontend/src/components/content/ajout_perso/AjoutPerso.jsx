@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 // ⚠️ Ajuster les chemins des assets en fonction de l'emplacement final du dossier AjoutPerso/
 import Perso from "../../../assets/v3.png";
 import Button from "@mui/material/Button";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Snackbar from '@mui/material/Snackbar';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
@@ -17,7 +17,6 @@ import { useIsMobile } from "./hooks/useIsMobile";
 import { useFaceApiModels } from "./hooks/useFaceApiModels";
 import { useWebcamReady } from "./hooks/useWebcamReady";
 import { useFaceDetectionOverlay } from "./hooks/useFaceDetectionOverlay";
-import { useAdminDivisions } from "./hooks/useAdminDivisions";
 import { dataURLtoFile } from "./utils/fileHelpers";
 import { generatePassword } from "./utils/password";
 import PageHeader from "../autorisations_absences/components/PageHeader";
@@ -59,6 +58,7 @@ const AjoutPerso = () => {
     const [selectedImageURL, setSelectedImageURL] = useState(null);
     const [loadingImage, setLoadingImage] = useState(false);
     const fileInputRef = useRef(null);
+    const [services, setServices] = useState([]); // liste des divisions
     const [selectedService, setSelectedService] = useState(""); // service sélectionné
     const [pageLoading, setPageLoading] = useState(true);
     const [divisions, setDivisions] = useState([]);
@@ -80,6 +80,8 @@ const AjoutPerso = () => {
     const [openResultModal, setOpenResultModal] = useState(false);
     const [resultType, setResultType] = useState("success"); // success | error
     const [modalMessage, setModalMessage] = useState("");
+    // 🔄 admin/idrh/idserv récupérés localement, comme dans ModPerso (fetchAdminAndDivisions)
+    const [admin, setAdmin] = useState(null);
     const [errors, setErrors] = useState({
         matricule: false,
         nom: false,
@@ -94,8 +96,7 @@ const AjoutPerso = () => {
     });
     const [selectedRole, setSelectedRole] = useState("bureau"); // valeur par défaut
     const canvasRef = useRef(null);
-    const location = useLocation();
-    const { idrh, idserv } = location.state || {};
+
     // 🔄 Renommé : ce n'est plus un descripteur de reconnaissance,
     // seulement une signature géométrique + un marqueur "visage présent".
     const [selectedFaceSignature, setSelectedFaceSignature] = useState(null);
@@ -109,7 +110,6 @@ const AjoutPerso = () => {
     const modelsLoaded = useFaceApiModels();
     const webcamReady = useWebcamReady(webcamRef);
     useFaceDetectionOverlay({ webcamRef, canvasRef, modelsLoaded, scanning });
-    const { admin, services } = useAdminDivisions(fetchMe);
 
     const chargerLoading = () => {
         setLoading(true);
@@ -118,6 +118,44 @@ const AjoutPerso = () => {
     useEffect(() => {
         setPassword(generatePassword());
     }, []);
+
+    // ------------------------------------------------------------------
+    // Récupération admin + idrh/idserv + services : même logique que
+    // fetchAdminAndDivisions dans ModPerso.jsx (fetchMe() + fetch services).
+    // ------------------------------------------------------------------
+    useEffect(() => {
+        const fetchAdminAndDivisions = async () => {
+            try {
+                const data = await fetchMe();
+                setAdmin(data);
+
+                if (!data || !data.responsable || !data.responsable.idrh) {
+                    navigate("/login");
+                    return;
+                }
+
+                const res = await fetch(
+                    `${API_URL}/api/divisions/by_service?idserv=${data.responsable.idserv}`,
+                    { credentials: "include" },
+                );
+                const divData = await res.json();
+
+                if (Array.isArray(divData)) {
+                    setServices(divData);
+                } else {
+                    console.error("Réponse API invalide :", divData);
+                }
+            } catch (err) {
+                console.error("Erreur fetch admin ou divisions :", err);
+                navigate("/login");
+            }
+        };
+
+        fetchAdminAndDivisions();
+    }, []);
+
+    const idrh = admin?.responsable?.idrh;
+    const idserv = admin?.responsable?.idserv;
 
     const handleCapture = async () => {
         if (!webcamRef.current) return;
@@ -236,10 +274,10 @@ const AjoutPerso = () => {
     };
 
     useEffect(() => {
-        if (!idrh) {
+        if (admin && !idrh) {
             navigate(-1);
         }
-    }, [idrh]);
+    }, [admin, idrh]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -256,7 +294,7 @@ const AjoutPerso = () => {
             prenom: !prenom.trim(),
             email: !email.trim(),
             role: !selectedRole,
-            services: !services,
+            services: !selectedService,
             password: !password,
         };
         setErrors(newErrors);
