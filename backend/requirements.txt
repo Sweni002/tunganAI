@@ -28,7 +28,6 @@ torchvision
 torch
 easydict==1.9
 flask-socketio 
-eventlet
 openpyxl
 qrcode[pil]
 pytesseract

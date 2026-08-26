@@ -1,6 +1,4 @@
 from flask import Flask, request
-import eventlet
-eventlet.monkey_patch()
 from flask_cors import CORS
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -26,8 +24,8 @@ SOCKET_ALLOWED_ORIGINS = [
 
 # Autoriser toutes les IP du réseau 192.168.88.* 10.4.111.55
 for i in range(1, 255):
-    SOCKET_ALLOWED_ORIGINS.append(f"http://10.4.111.{i}")
-    SOCKET_ALLOWED_ORIGINS.append(f"https://10.4.111.{i}")
+    SOCKET_ALLOWED_ORIGINS.append(f"http://192.168.88.{i}")
+    SOCKET_ALLOWED_ORIGINS.append(f"https://192.168.88.{i}")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
@@ -35,7 +33,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 # émis par une instance soient reçus par les clients connectés sur l'autre instance
 socketio = SocketIO(
     cors_allowed_origins=SOCKET_ALLOWED_ORIGINS,
-    async_mode="eventlet",
+async_mode="threading",  
     message_queue=REDIS_URL,
 )
 
@@ -102,7 +100,7 @@ def create_app():
         app,
         supports_credentials=True,
         origins=[
-            r"^https?://10\.4\.111\.[0-9]{1,3}(?::[0-9]+)?$",
+            r"^https?://192\.168\.88\.[0-9]{1,3}(?::[0-9]+)?$",
             r"^http://127\.0\.0\.1:5173$",
             r"^http://localhost:5173$",
         ],
