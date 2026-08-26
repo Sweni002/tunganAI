@@ -146,20 +146,21 @@ const markPasswordAsSeen = async () => {
 
 const [passwordDialogShown, setPasswordDialogShown] = useState(false);
 useEffect(() => {
-  if (!user) return;
-
-  const canChangePassword =
-    (user.personnel && user.personnel.can_change_password) ||
-    (user.responsable && user.responsable.can_change_password) ||
-    (user.admin && user.admin.can_change_password); // 🔹 ajout pour admin
-
-  if (canChangePassword && !passwordDialogShown) {
-    setPasswordDialogOpen(true);
-    setPasswordDialogShown(true); // ✅ marque comme déjà affiché
-
-      // 🔥 update DB une seule fois
-    markPasswordAsSeen();
-  }
+  // 🔒 Modal "Changement de mot de passe" désactivée : ne s'affiche plus.
+  // (logique conservée en commentaire si besoin de la réactiver un jour)
+  //
+  // if (!user) return;
+  //
+  // const canChangePassword =
+  //   (user.personnel && user.personnel.can_change_password) ||
+  //   (user.responsable && user.responsable.can_change_password) ||
+  //   (user.admin && user.admin.can_change_password);
+  //
+  // if (canChangePassword && !passwordDialogShown) {
+  //   setPasswordDialogOpen(true);
+  //   setPasswordDialogShown(true);
+  //   markPasswordAsSeen();
+  // }
 }, [user, passwordDialogShown]);
 useEffect(() => {
   if (!user || !user.responsable) return;
