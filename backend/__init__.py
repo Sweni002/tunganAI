@@ -22,42 +22,39 @@ SOCKET_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-# Autoriser toutes les IP du réseau 192.168.88.* 10.4.111.55
 for i in range(1, 255):
     SOCKET_ALLOWED_ORIGINS.append(f"http://192.168.88.{i}")
     SOCKET_ALLOWED_ORIGINS.append(f"https://192.168.88.{i}")
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
-# Message queue Redis : indispensable pour que les événements SocketIO
-# émis par une instance soient reçus par les clients connectés sur l'autre instance
 socketio = SocketIO(
     cors_allowed_origins=SOCKET_ALLOWED_ORIGINS,
 async_mode="threading",  
     message_queue=REDIS_URL,
 )
 
-# Instances globales
 scheduler = APScheduler()
 migrate = Migrate()
 login_manager = LoginManager()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "devsecret123")
 
-# Active le scheduler uniquement sur l'instance désignée (voir .env de chaque serveur)
 ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
 
 
 def create_app():
     app = Flask(__name__)
 
-    # Config de base
     app.config.from_object('config.Config')
 
-    # --- Connexion Redis (créée AVANT la config des sessions car SESSION_REDIS en dépend) ---
+    # --- Redis (avant les sessions) ---
     redis_client = redis.from_url(
         REDIS_URL,
-        decode_responses=False
+        decode_responses=False,
+        socket_timeout=2,
+        socket_connect_timeout=2,
+        health_check_interval=30,
     )
 
     try:
@@ -68,7 +65,7 @@ def create_app():
 
     app.extensions["redis"] = redis_client
 
-    # --- Sessions partagées via Redis (au lieu de filesystem local) ---
+    # --- Sessions partagées via Redis ---
     app.config.update(
         SESSION_TYPE="redis",
         SESSION_REDIS=redis_client,
@@ -82,7 +79,6 @@ def create_app():
         SESSION_REFRESH_EACH_REQUEST=True,
     )
 
-    # Initialisation extensions
     db.init_app(app)
 
     from utils.cache import register_cache_invalidation
@@ -95,7 +91,6 @@ def create_app():
 
     Session(app)
 
-    # CORS pour React
     CORS(
         app,
         supports_credentials=True,
@@ -106,14 +101,12 @@ def create_app():
         ],
     )
 
-    # Autoriser OPTIONS pour les requêtes préflight
     @app.before_request
     def bypass_options():
         if request.method == 'OPTIONS':
-            response = app.make_default_options_response()
-            return response
+            return app.make_default_options_response()
 
-    # --- Enregistrement des Blueprints (API) ---
+    # --- Blueprints ---
     from api.personnels_api import bp as personnels_bp
     app.register_blueprint(personnels_bp, url_prefix='/api/personnels')
 
@@ -159,7 +152,7 @@ def create_app():
     from api.create_service_horaire import bp as create_service_horaire_bp
     app.register_blueprint(create_service_horaire_bp, url_prefix='/api/services-horaires')
 
-    # --- Scheduler : uniquement sur l'instance qui a ENABLE_SCHEDULER=true ---
+    # --- Scheduler (une seule instance) ---
     if ENABLE_SCHEDULER:
         scheduler.init_app(app)
 
@@ -182,10 +175,10 @@ def create_app():
     else:
         print("⏸️ Scheduler désactivé sur cette instance (ENABLE_SCHEDULER=false)")
 
-    # --- Chargement embeddings pour la reconnaissance faciale ---
+    # --- Embeddings + synchronisation entre instances ---
     with app.app_context():
-        print("✅ Toutes les tables SQLAlchemy ont été créées si elles n'existaient pas !")
         face_utils.preload_embeddings_threadsafe()
 
+    face_utils.init_face_sync(app)
 
     return app

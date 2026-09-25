@@ -1,3 +1,6 @@
+import eventlet
+import uuid
+from eventlet import tpool
 from flask import Blueprint, request, jsonify, session
 from datetime import datetime, time, date
 from models import db, MacNonAutorisee,Conge,JournalTentativePointage,Client, Responsables, Divisions, Notification,Services ,AutorisationSpeciale,  TypeAutorisation,PeriodeAutorisation
@@ -18,7 +21,28 @@ import shutil
 import hashlib
 from unittest.mock import patch
 from sqlalchemy import func, case, select, union_all, literal
-from utils.face_utils import verifier_face,update_personnel_embedding ,get_service_rows ,_detect_single_face
+
+from utils.background import run_in_background
+from utils.face_utils import (
+    _detect_single_face,
+    get_service_rows,
+    update_personnel_embedding,
+    verifier_face,
+)
+from utils.pointage_redis import (
+    acquire_lock,
+    already_done,
+    delete_image,
+    get_image,
+    has_image,
+    mark_done,
+    once_per_day,
+    pop_pending,
+    release_lock,
+    reset_once_per_day,
+    store_pending,
+)
+
 from __init__ import socketio
 from excel import creer_fiche_presence,creer_fiche_presence_periode
 import concurrent.futures
@@ -33,6 +57,9 @@ import cv2
 import numpy as np
 import logging
 from utils.cache import cached_assiduite_date ,cached_assiduite_date_range ,cached_assiduite_stats
+from flask import current_app
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
 
 logger = logging.getLogger(__name__)
  
@@ -50,6 +77,143 @@ os.makedirs(FACE_DB_DIR, exist_ok=True)
 # now = datetime.combine(date.today(), time(16, 30, 0))
 
 
+# ============================================================
+# POSTE : vérification MAC une seule fois par jour
+# - step1 interroge la base au plus une fois par jour et par MAC (cache Redis)
+# - le jeton renvoyé n'est valable que pour la journée en cours
+# - step3 ne lit plus que le jeton : plus aucune vérification MAC en base
+# ============================================================
+POSTE_TOKEN_SAFETY_MAX_AGE = 24 * 3600   # garde-fou absolu (s)
+MAC_NEGATIVE_TTL = 300                   # MAC refusée : revérifiée après 5 min
+
+
+def _today_str():
+    return datetime.now().strftime("%Y%m%d")
+
+
+def _seconds_until_midnight():
+    now = datetime.now()
+    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return max(60, int((midnight - now).total_seconds()))
+
+
+def _mac_day_key(mac_address):
+    return f"pointage:v1:mac_day:{_normalize_mac(mac_address)}:{_today_str()}"
+
+
+def get_service_info_for_today(mac_address):
+    """
+    Vérifie la MAC en base UNE SEULE FOIS par jour (toutes instances confondues).
+    Renvoie {"idserv", "nom"} ou None.
+    """
+    redis_client = current_app.extensions.get("redis")
+    key = _mac_day_key(mac_address)
+
+    if redis_client is not None:
+        try:
+            cached = redis_client.get(key)
+            if cached is not None:
+                return None if cached == b"-" else json.loads(cached)
+        except Exception as exc:
+            logger.warning("[Poste] Redis indisponible (lecture) : %s", exc)
+
+    service = get_service_by_mac(mac_address)
+    info = {"idserv": service.idserv, "nom": service.nom} if service else None
+
+    if redis_client is not None:
+        try:
+            if info:
+                redis_client.setex(key, _seconds_until_midnight(), json.dumps(info))
+            else:
+                redis_client.setex(key, MAC_NEGATIVE_TTL, "-")
+        except Exception as exc:
+            logger.warning("[Poste] Redis indisponible (écriture) : %s", exc)
+
+    return info
+
+
+def invalidate_mac_today(mac_address):
+    """À appeler quand un admin ajoute/retire une MAC autorisée."""
+    redis_client = current_app.extensions.get("redis")
+    if redis_client is not None:
+        try:
+            redis_client.delete(_mac_day_key(mac_address))
+        except Exception:
+            pass
+
+
+
+def _poste_serializer():
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="poste-pointage")
+
+
+def _make_poste_token(mac_address, service):
+    """service : dict {"idserv", "nom"} ou objet Services. Jeton valable pour la journée."""
+    if isinstance(service, dict):
+        idserv = service["idserv"]
+        nom = service.get("nom", "")
+    else:
+        idserv = service.idserv
+        nom = service.nom
+
+    return _poste_serializer().dumps({
+        "mac": _normalize_mac(mac_address),
+        "idserv": idserv,
+        "service_nom": nom,
+        "day": _today_str(),
+    })
+
+
+def _read_poste_token(token, mac_address):
+    """Renvoie le contenu du jeton s'il est valide AUJOURD'HUI pour cette MAC, sinon None."""
+    try:
+        payload = _poste_serializer().loads(token, max_age=POSTE_TOKEN_SAFETY_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+
+    if payload.get("day") != _today_str():
+        return None
+    if payload.get("mac") != _normalize_mac(mac_address):
+        return None
+    return payload
+ 
+ 
+def _task_update_embedding(id_value, emb_list, score_face, second_score):
+    emb = np.array(emb_list, dtype=np.float32) if emb_list is not None else None
+    update_personnel_embedding(
+        id_value, emb, score_face, second_score,
+        alpha=0.15, min_score_update=0.65, min_gap=0.15,
+    )
+
+
+def _task_update_descriptor(id_value, descriptor_list):
+    personnel = Personnels.query.get(id_value)
+    if personnel:
+        personnel.set_faceapi_descriptor(np.array(descriptor_list, dtype=np.float32))
+        db.session.commit()
+
+
+def _task_notify(idpointage, idpers, description, date_iso):
+    notification = Notification(
+        idpointage=idpointage,
+        idpers=idpers,
+        description=description,
+        etat=False,
+    )
+    db.session.add(notification)
+    db.session.commit()
+
+    socketio.emit("pointage_update", {
+        "idnotif": notification.id,
+        "idpers": idpers,
+        "idpointage": idpointage,
+        "description": description,
+        "etat": notification.etat,
+        "date": date_iso,
+    })
+
+
+    
 def creer_pointages_vides():
     today = date.today()
 
@@ -1869,69 +2033,63 @@ def enregistrer_mac_non_autorisee(mac_address):
 
 from time import perf_counter
 
+# ============================================================
+# Tâches de fond
+# ============================================================
+def _log_async(**kwargs):
+    run_in_background(log_tentative_pointage, **kwargs)
+
+
+
+# ============================================================
+# ÉTAPE 1 : vérification du poste (une fois au chargement de la page)
+# ============================================================
 @bp.route("/facial_client/step1-verify-mac", methods=["POST"])
 def facial_client_step1_verify_mac():
-    # ⏱️ DÉBUT DU CHRONO
     start = perf_counter()
-    
-    data = request.get_json() or {}
+
+    data = request.get_json(silent=True) or {}
     mac_address = data.get("mac_address")
     type_pointage_str = data.get("type_pointage")
     type_pointage = TypePointage(type_pointage_str) if type_pointage_str in ("entree", "sortie") else None
 
-    # Mesure du parsing
-    t_parse = perf_counter()
-    elapsed_parse = (t_parse - start) * 1000
-
     if not mac_address:
         total = (perf_counter() - start) * 1000
-        log_tentative_pointage(
+        _log_async(
             etape=EtapePointage.VERIFICATION_MAC,
             statut=StatutPointage.ERREUR,
             message="mac_address manquant",
             mac_address=mac_address,
             type_pointage=type_pointage,
             temps_ms=total,
-            temps_detail={"parse_ms": elapsed_parse, "total_ms": total}
+            temps_detail={"total_ms": total},
         )
         return jsonify({"error": "mac_address manquant"}), 400
 
-    # Recherche en base
     t_db = perf_counter()
-    service = get_service_by_mac(mac_address)
+    info = get_service_info_for_today(mac_address)
     elapsed_db = (perf_counter() - t_db) * 1000
 
-    if not service:
+    if not info:
         enregistrer_mac_non_autorisee(mac_address)
-        total = (perf_counter() - start) * 1000
-        
-      
         return jsonify({"error": "Ce poste n'est pas autorisé à effectuer un pointage."}), 403
 
-    # Construction de la réponse
-    t_response = perf_counter()
-    response = {
-        "authorized": True,
-        "idserv": service.idserv,
-        "service_nom": service.nom,
-    }
-    elapsed_response = (perf_counter() - t_response) * 1000
-    
     total = (perf_counter() - start) * 1000
-    
-   
 
-    # RETOUR AU CLIENT AVEC PERFORMANCE
-    response["performance"] = {
-        "total_ms": round(total, 3),
-        "details": {
-            "parse_ms": round(elapsed_parse, 3),
-            "db_ms": round(elapsed_db, 3),
-            "response_ms": round(elapsed_response, 3)
-        }
-    }
-    
-    return jsonify(response), 200
+    return jsonify({
+        "authorized": True,
+        "idserv": info["idserv"],
+        "service_nom": info["nom"],
+        "poste_token": _make_poste_token(mac_address, info),
+        "expires_in": _seconds_until_midnight(),
+        "day": _today_str(),
+        "performance": {
+            "total_ms": round(total, 3),
+            "details": {"db_ms": round(elapsed_db, 3)},
+        },
+    }), 200
+
+
 
 @bp.route("/check-face-covering", methods=["POST"])
 def check_face_covering():
@@ -2012,114 +2170,48 @@ def check_face_covering():
         return jsonify({"error": f"Erreur serveur : {exc}"}), 500
 
 
-def _cleanup_temp_image(image_path):
-    if image_path and os.path.exists(image_path):
-        try:
-            os.remove(image_path)
-        except OSError:
-            pass
-
- 
-# ============================================================
-# Pool partagé
-#
-# L'ancien code faisait "with ThreadPoolExecutor() as executor:" à CHAQUE
-# requête : création + destruction d'un pool pour lancer une seule tâche.
-# Un pool unique au niveau module supprime ce cog_tût.
-# ============================================================
-_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=8, thread_name_prefix="pointage"
-)
- 
-# ============================================================
-# Stockage temporaire entre step2 et step3
-# ============================================================
-_PENDING = {}
-_PENDING_LOCK = threading.Lock()
-_PENDING_TTL = 180.0          # secondes
- 
 TEMP_ID_RE = re.compile(r"^[0-9a-f]{32}$")
- 
- 
-def _purge_pending():
-    """Supprime les entrées expirées (et leurs fichiers temporaires)."""
-    import time as times
-    now = times.time()
-    with _PENDING_LOCK:
-        expired = [k for k, v in _PENDING.items() if now - v["ts"] > _PENDING_TTL]
-        for k in expired:
-            _PENDING.pop(k, None)
- 
-    for k in expired:
-        path = os.path.join(TEMP_UPLOAD_DIR, f"{k}.jpg")  # noqa: F821
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
- 
- 
-def _store_pending(temp_id, emb=None, error=None):
-    import time as times
-    with _PENDING_LOCK:
-        _PENDING[temp_id] = {"emb": emb, "error": error, "ts": times.time()}
- 
- 
-def _pop_pending(temp_id):
-    
-    with _PENDING_LOCK:
-        return _PENDING.pop(temp_id, None)
- 
+CPU_TIMEOUT = 10  # s
 
 
 # ============================================================
-# ÉTAPE 2 : anti-spoof + embedding en parallèle
+# ÉTAPE 2 : anti-spoof + embedding en VRAI parallèle (tpool)
+# Aucune journalisation en base.
 # ============================================================
 @bp.route("/facial_client/step2-antispoof", methods=["POST"])
 def facial_client_step2_antispoof():
-    # ⏱️ DÉBUT DU CHRONO
     start_global = perf_counter()
-    
-    now = datetime.now()
-    if now.weekday() >= 5:
+
+    if datetime.now().weekday() >= 5:
         return jsonify({"error": "On est weekend !"}), 400
- 
+
     if "image" not in request.files:
         return jsonify({"error": "Aucune image envoyée"}), 400
- 
-    mac_address = request.form.get("mac_address")
-    type_pointage_str = request.form.get("type_pointage")
-    type_pointage = TypePointage(type_pointage_str) if type_pointage_str in ("entree", "sortie") else None
- 
-    # Lecture de l'image
+
     t_read = perf_counter()
-    file_bytes = np.frombuffer(request.files["image"].read(), np.uint8)
+    raw_bytes = request.files["image"].read()
+    file_bytes = np.frombuffer(raw_bytes, np.uint8)
     image_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     elapsed_read = (perf_counter() - t_read) * 1000
- 
+
     if image_array is None:
         return jsonify({"error": "Image invalide ou illisible"}), 400
- 
-    original_jpg = file_bytes.tobytes()
+
     temp_id = uuid.uuid4().hex
-    image_path = os.path.join(TEMP_UPLOAD_DIR, f"{temp_id}.jpg")
- 
-    # Dictionnaire des temps
+
     times = {
         "read_ms": round(elapsed_read, 3),
         "spoof_ms": 0,
         "embedding_ms": 0,
-        "write_ms": 0,
-        "parallel_setup_ms": 0
     }
-    
+
     def run_antispoof():
         t0 = perf_counter()
         from api.antispoof_api import predict_spoof
         result = predict_spoof(image=image_array)
         times["spoof_ms"] = round((perf_counter() - t0) * 1000, 3)
         return result
- 
+
     def run_embedding():
         t0 = perf_counter()
         try:
@@ -2128,1141 +2220,702 @@ def facial_client_step2_antispoof():
             result = None, str(exc)
         times["embedding_ms"] = round((perf_counter() - t0) * 1000, 3)
         return result
- 
-    def run_write():
-        t0 = perf_counter()
-        cv2.imwrite(image_path, image_array)
-        times["write_ms"] = round((perf_counter() - t0) * 1000, 3)
- 
-    # Lancement des tâches parallèles
-    t_parallel = perf_counter()
-    f_spoof = _EXECUTOR.submit(run_antispoof)
-    f_emb = _EXECUTOR.submit(run_embedding)
-    f_write = _EXECUTOR.submit(run_write)
-    times["parallel_setup_ms"] = round((perf_counter() - t_parallel) * 1000, 3)
- 
-    def _fail(message, status, payload=None, score=None):
-        total = (perf_counter() - start_global) * 1000
-        times["total_ms"] = round(total, 3)
-        
-        log_tentative_pointage(
-            etape=EtapePointage.ANTISPOOF,
-            statut=StatutPointage.ERREUR,
-            message=message,
-            score_face=score,
-            image_bytes=original_jpg,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total,
-            temps_detail=times
-        )
-        f_write.result()
-        _cleanup_temp_image(image_path)
+
+    # Deux vrais threads OS : les deux modèles tournent en même temps
+    # et le reste du serveur (eventlet) n'est pas bloqué.
+    gt_spoof = eventlet.spawn(tpool.execute, run_antispoof)
+    gt_emb = eventlet.spawn(tpool.execute, run_embedding)
+
+    def _fail(message, status, payload=None):
+        times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
         return jsonify(payload or {"error": message}), status
- 
+
+    # Résultat anti-spoof
     try:
         t_wait = perf_counter()
-        spoof_result = f_spoof.result(timeout=10)
+        with eventlet.Timeout(CPU_TIMEOUT):
+            spoof_result = gt_spoof.wait()
         times["wait_spoof_ms"] = round((perf_counter() - t_wait) * 1000, 3)
-        
-    except concurrent.futures.TimeoutError:
-        return _fail("Erreur de connexion, veuillez réessayer (timeout)", 504,
-                     {"error": "Erreur de connexion, veuillez réessayer"})
+    except eventlet.Timeout:
+        return _fail(
+            "Erreur de connexion, veuillez réessayer (timeout)", 504,
+            {"error": "Erreur de connexion, veuillez réessayer"},
+        )
     except Exception as e:
         return _fail(str(e), 500)
- 
+
     if not spoof_result.get("success", False):
         return _fail("Erreur anti-spoof", 400)
- 
+
     result_label = spoof_result.get("result", "").lower()
     score = float(spoof_result.get("score", 0))
- 
+
     if result_label != "real" or score < 0.8:
         return _fail(
             "Visage suspect détecté (spoofing)", 403,
-            {"error": "Visage suspect détecté (spoofing)",
-             "score": score, "type": result_label},
-            score=score,
+            {"error": "Visage suspect détecté (spoofing)", "score": score, "type": result_label},
         )
- 
-    # Récupération de l'embedding
+
+    # Embedding (déjà terminé la plupart du temps)
     t_emb_wait = perf_counter()
     try:
-        emb, emb_error = f_emb.result(timeout=10)
-        times["embedding_wait_ms"] = round((perf_counter() - t_emb_wait) * 1000, 3)
+        with eventlet.Timeout(CPU_TIMEOUT):
+            emb, emb_error = gt_emb.wait()
+    except eventlet.Timeout:
+        emb, emb_error = None, None  # step3 recalculera à partir de l'image
     except Exception as exc:
         emb, emb_error = None, str(exc)
-        times["embedding_wait_ms"] = round((perf_counter() - t_emb_wait) * 1000, 3)
- 
-    f_write.result()
-    _store_pending(temp_id, emb=emb, error=emb_error)
-    _purge_pending()
- 
-    total = (perf_counter() - start_global) * 1000
-    times["total_ms"] = round(total, 3)
- 
-    # LOG SUCCÈS AVEC TEMPS DÉTAILLÉS
-    log_tentative_pointage(
-        etape=EtapePointage.ANTISPOOF,
-        statut=StatutPointage.SUCCES,
-        message=f"Antispoof validé (score:{score:.2f})",
-        score_face=score,
-        image_bytes=original_jpg,
-        mac_address=mac_address,
-        type_pointage=type_pointage,
-        temps_ms=total,
-        temps_detail=times
-    )
- 
+    times["embedding_wait_ms"] = round((perf_counter() - t_emb_wait) * 1000, 3)
+
+    # Embedding + image dans Redis (visibles par toutes les instances)
+    store_pending(temp_id, emb=emb, error=emb_error, image_jpg=raw_bytes)
+
+    times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
+
     return jsonify({
         "success": True,
         "score": score,
         "temp_id": temp_id,
-        "performance": times  # Retour au client
+        "performance": times,
     }), 200
     
- 
+
+
 # ============================================================
-# ÉTAPE 3 : matching seul (~1 ms)
+# ÉTAPE 3 : reconnaissance (service lu dans le jeton, matching vectorisé)
 # ============================================================
 @bp.route("/facial_client/step3-recognition", methods=["POST"])
 def facial_client_step3_recognition():
-    # ⏱️ DÉBUT DU CHRONO
     start_global = perf_counter()
-    
-    data = request.get_json() or {}
+
+    data = request.get_json(silent=True) or {}
     temp_id = data.get("temp_id")
     mac_address = data.get("mac_address")
+    poste_token = data.get("poste_token")
     type_pointage_str = data.get("type_pointage")
     type_pointage = TypePointage(type_pointage_str) if type_pointage_str in ("entree", "sortie") else None
- 
-    # Validation temp_id
+
     t_validate = perf_counter()
     if not temp_id or not TEMP_ID_RE.match(str(temp_id)):
         return jsonify({"error": "temp_id invalide"}), 400
+    if not has_image(temp_id):
+        return jsonify({"error": "Image introuvable ou expirée, veuillez recommencer"}), 400
     elapsed_validate = (perf_counter() - t_validate) * 1000
- 
-    image_path = os.path.join(TEMP_UPLOAD_DIR, f"{temp_id}.jpg")
-    if not os.path.exists(image_path):
-        return jsonify({
-            "error": "Image introuvable ou expirée, veuillez recommencer"
-        }), 400
- 
-    # Vérification MAC
+
+    # ---- Poste : uniquement le jeton du jour (aucune requête en base) ----
     t_mac = perf_counter()
-    service = get_service_by_mac(mac_address)
+    payload = _read_poste_token(poste_token, mac_address) if poste_token else None
+    if not payload:
+        delete_image(temp_id)
+        return jsonify({
+            "error": "Session du poste expirée, veuillez réessayer.",
+            "code": "poste_token_invalid",
+        }), 401
+    idserv = payload["idserv"]
+    service_nom = payload.get("service_nom", "")
     elapsed_mac = (perf_counter() - t_mac) * 1000
-    
-    if not service:
-        enregistrer_mac_non_autorisee(mac_address)
-        _cleanup_temp_image(image_path)
-        return jsonify({
-            "error": "Ce poste n'est pas autorisé à effectuer un pointage."
-        }), 403
- 
-    # Récupération des employés autorisés
+
+    # ---- Employés du service (cache local de face_utils) ----
     t_allowed = perf_counter()
-    allowed_rows = get_service_rows(
-        service.idserv, lambda: get_idpers_for_service(service.idserv)
-    )
+    allowed_rows = get_service_rows(idserv, lambda: get_idpers_for_service(idserv))
     elapsed_allowed = (perf_counter() - t_allowed) * 1000
- 
+
+    base_times = {
+        "validate_ms": round(elapsed_validate, 3),
+        "mac_ms": round(elapsed_mac, 3),
+        "allowed_ms": round(elapsed_allowed, 3),
+    }
+
+    def _fail(message, status, extra=None, **log_kwargs):
+        total = (perf_counter() - start_global) * 1000
+        detail = {**base_times, **(extra or {}), "total_ms": round(total, 3)}
+        _log_async(
+            etape=EtapePointage.RECOGNITION,
+            statut=StatutPointage.ERREUR,
+            message=message,
+            image_bytes=get_image(temp_id),
+            mac_address=mac_address,
+            type_pointage=type_pointage,
+            temps_ms=total,
+            temps_detail=detail,
+            **log_kwargs,
+        )
+        delete_image(temp_id)
+        return jsonify({"error": message}), status
+
     if allowed_rows.size == 0:
-        total = (perf_counter() - start_global) * 1000
-        log_tentative_pointage(
-            etape=EtapePointage.RECOGNITION,
-            statut=StatutPointage.ERREUR,
-            message=f"Aucun personnel rattaché au service {service.nom}",
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total,
-            temps_detail={
-                "validate_ms": round(elapsed_validate, 3),
-                "mac_ms": round(elapsed_mac, 3),
-                "allowed_ms": round(elapsed_allowed, 3),
-                "total_ms": round(total, 3)
-            }
-        )
-        _cleanup_temp_image(image_path)
-        return jsonify({
-            "error": "Aucun personnel n'est rattaché à ce service."
-        }), 400
- 
-    # Récupération de l'embedding
+        return _fail(f"Aucun personnel n'est rattaché au service {service_nom}.", 400)
+
+    # ---- Embedding calculé à l'étape 2 ----
     t_pop = perf_counter()
-    entry = _pop_pending(temp_id)
+    entry = pop_pending(temp_id)
     elapsed_pop = (perf_counter() - t_pop) * 1000
- 
+
     if entry and entry.get("error"):
-        total = (perf_counter() - start_global) * 1000
-        log_tentative_pointage(
-            etape=EtapePointage.RECOGNITION,
-            statut=StatutPointage.ERREUR,
-            message=entry["error"],
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total,
-            temps_detail={
-                "validate_ms": round(elapsed_validate, 3),
-                "mac_ms": round(elapsed_mac, 3),
-                "allowed_ms": round(elapsed_allowed, 3),
-                "pop_ms": round(elapsed_pop, 3),
-                "total_ms": round(total, 3)
-            }
-        )
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": entry["error"]}), 400
- 
-    # Vérification faciale (matching)
+        return _fail(entry["error"], 400, {"pop_ms": round(elapsed_pop, 3)})
+
+    # ---- Matching ----
     t_match = perf_counter()
     try:
         if entry and entry.get("emb") is not None:
+            # Produit matriciel : ~1 ms, pas besoin de thread
             role, id_value, emb, score_face, second_score = verifier_face(
                 emb=entry["emb"],
                 threshold=0.48, min_gap=0.10, top2_check=True,
                 allowed_rows=allowed_rows,
             )
         else:
-            future = _EXECUTOR.submit(
-                verifier_face,
-                image_path=image_path,
-                threshold=0.48, min_gap=0.10, top2_check=True,
-                allowed_rows=allowed_rows,
-            )
-            role, id_value, emb, score_face, second_score = future.result(timeout=10)
+            # Secours : recalcul de l'embedding depuis l'image (Redis) dans un vrai thread
+            img_bytes = get_image(temp_id)
+            image_array = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+            with eventlet.Timeout(CPU_TIMEOUT):
+                role, id_value, emb, score_face, second_score = tpool.execute(
+                    verifier_face,
+                    image=image_array,
+                    threshold=0.48, min_gap=0.10, top2_check=True,
+                    allowed_rows=allowed_rows,
+                )
+    except eventlet.Timeout:
         elapsed_match = (perf_counter() - t_match) * 1000
-            
-    except concurrent.futures.TimeoutError:
-        total = (perf_counter() - start_global) * 1000
-        log_tentative_pointage(
-            etape=EtapePointage.RECOGNITION,
-            statut=StatutPointage.ERREUR,
-            message="Timeout reconnaissance",
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total,
-            temps_detail={
-                "validate_ms": round(elapsed_validate, 3),
-                "mac_ms": round(elapsed_mac, 3),
-                "allowed_ms": round(elapsed_allowed, 3),
-                "pop_ms": round(elapsed_pop, 3),
-                "match_ms": round(elapsed_match, 3),
-                "total_ms": round(total, 3)
-            }
+        return _fail(
+            "Erreur de connexion, veuillez réessayer", 504,
+            {"pop_ms": round(elapsed_pop, 3), "match_ms": round(elapsed_match, 3)},
         )
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": "Erreur de connexion, veuillez réessayer"}), 504
     except Exception as e:
-        total = (perf_counter() - start_global) * 1000
-        log_tentative_pointage(
-            etape=EtapePointage.RECOGNITION,
-            statut=StatutPointage.ERREUR,
-            message=str(e),
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=total
+        elapsed_match = (perf_counter() - t_match) * 1000
+        return _fail(
+            str(e), 500,
+            {"pop_ms": round(elapsed_pop, 3), "match_ms": round(elapsed_match, 3)},
         )
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": str(e)}), 500
- 
-    # -----------------------------
-# Succès
-# -----------------------------
-    total = (perf_counter() - start_global) * 1000
+    elapsed_match = (perf_counter() - t_match) * 1000
 
     if not role:
-      log_tentative_pointage(
-        etape=EtapePointage.RECOGNITION,
-        statut=StatutPointage.ERREUR,
-        message="Visage non reconnu ou ambigu",
-        score_face=score_face,
-        second_score=second_score,
-        image_path=image_path,
-        mac_address=mac_address,
-        type_pointage=type_pointage,
-        temps_ms=total,
-        temps_detail={
-            "validate_ms": round(elapsed_validate, 3),
-            "mac_ms": round(elapsed_mac, 3),
-            "allowed_ms": round(elapsed_allowed, 3),
+        return _fail(
+            "Visage non reconnu ou ambigu", 401,
+            {"pop_ms": round(elapsed_pop, 3), "match_ms": round(elapsed_match, 3)},
+            score_face=score_face,
+            second_score=second_score,
+        )
+
+    total = (perf_counter() - start_global) * 1000
+
+    # L'image reste dans Redis : step4 l'utilise pour le journal.
+    return jsonify({
+        "role": role,
+        "id_value": id_value,
+        "emb": emb.tolist() if emb is not None else None,
+        "score_face": float(score_face),
+        "second_score": float(second_score) if second_score is not None else -1,
+        "temp_id": temp_id,
+        "performance": {
+            **base_times,
             "pop_ms": round(elapsed_pop, 3),
             "match_ms": round(elapsed_match, 3),
             "total_ms": round(total, 3),
         },
-    )
-
-      _cleanup_temp_image(image_path)
-
-      return jsonify({
-        "error": "Visage non reconnu ou ambigu"
-    }), 401
+    }), 200
 
 
 # ============================================================
-# IMPORTANT :
-# Ne PAS supprimer l'image ici.
-# Elle sera utilisée par step4 pour l'enregistrement du journal.
-# Le cleanup sera effectué dans step4.
+# Contexte commun à l'étape 4 (entrée / sortie)
 # ============================================================
+class _Step4:
+    def __init__(self, type_str):
+        self.start = perf_counter()
+        self.times = {}
+        self.data = request.get_json(silent=True) or {}
+        self.now = datetime.now()
 
-    return jsonify({
-    "role": role,
-    "id_value": id_value,
-   "emb": emb.tolist() if emb is not None else None,
-    "score_face": float(score_face),
-    "second_score": float(second_score) if second_score is not None else -1,
-    "temp_id": temp_id,          # <-- AJOUT IMPORTANT
-    "performance": {
-        "validate_ms": round(elapsed_validate, 3),
-        "mac_ms": round(elapsed_mac, 3),
-        "allowed_ms": round(elapsed_allowed, 3),
-        "pop_ms": round(elapsed_pop, 3),
-        "match_ms": round(elapsed_match, 3),
-        "total_ms": round(total, 3),
-    }
-}), 200
+        d = self.data
+        self.role = d.get("role")
+        self.id_value = d.get("id_value")
+        self.emb_list = d.get("emb")
+        self.score_face = d.get("score_face")
+        self.second_score = d.get("second_score")
+        self.descriptor_list = d.get("face_descriptor")
+        self.mac_address = d.get("mac_address")
+        self.temp_id = d.get("temp_id")
 
-# ============================================================
-# ÉTAPE 4 : Enregistrement du pointage (ENTRÉE)
-# ============================================================
-@bp.route("/facial_client/step4-enregistrer", methods=["POST"])
-def facial_client_step4_enregistrer():
-    # ⏱️ DÉBUT DU CHRONO GLOBAL
-    start_global = perf_counter()
-    
-    # Dictionnaire des temps
-    times = {
-        "weekend_check_ms": 0,
-        "parse_ms": 0,
-        "validation_ms": 0,
-        "embedding_update_ms": 0,
-        "db_queries_ms": 0,
-        "pointage_creation_ms": 0,
-        "surface_processing_ms": 0,
-        "matin_processing_ms": 0,
-        "soir_processing_ms": 0,
-        "notification_ms": 0,
-        "socketio_ms": 0,
-        "descriptor_update_ms": 0,
-        "cleanup_ms": 0,
-        "total_ms": 0
-    }
+        self.type_str = type_str
+        self.type_pointage = TypePointage(type_str)
+        self.heure_str = self.now.strftime("%Hh:%M")
+        self.image_bytes = get_image(self.temp_id)
+        self._locked = False
 
-    # 1. Parsing de la requête
-    t_parse = perf_counter()
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Corps de requête JSON requis"}), 400
+    def tick(self, name, t0):
+        self.times[name] = round((perf_counter() - t0) * 1000, 3)
 
-    now = datetime.now()
-    if now.weekday() >= 5:
-        return jsonify({"error": "On est weekend !"}), 400
-    times["weekend_check_ms"] = round((perf_counter() - t_parse) * 1000, 3)
+    def total(self):
+        self.times["total_ms"] = round((perf_counter() - self.start) * 1000, 3)
+        return self.times["total_ms"]
 
-    role = data.get("role")
-    id_value = data.get("id_value")
-    emb_list = data.get("emb")
-    score_face = data.get("score_face")
-    second_score = data.get("second_score")
-    descriptor_list = data.get("face_descriptor")
-    mac_address = data.get("mac_address")
-    temp_id = data.get("temp_id")
-    print("=" * 60)
-    print("REQUEST JSON :", data)
-    print("temp_id      :", temp_id)
-    print("mac_address  :", mac_address)
-    type_pointage_str = data.get("type_pointage")
-    type_pointage = TypePointage(type_pointage_str) if type_pointage_str in ("entree", "sortie") else None
-
-    if not role or id_value is None:
-        return jsonify({"error": "Données de reconnaissance manquantes"}), 400
-
-    import numpy as np
-
-    emb = np.array(emb_list, dtype=np.float32) if emb_list is not None else None
-    face_descriptor = (
-        np.array(descriptor_list, dtype=np.float32) if descriptor_list else None
-    )
-
-    image_path = os.path.join(TEMP_UPLOAD_DIR, f"{temp_id}.jpg") if temp_id else None
-    times["parse_ms"] = round((perf_counter() - t_parse) * 1000, 3)
-
-    def _log(statut, message, **kwargs):
-        """Wrapper local qui joint systématiquement la photo et les temps."""
-        total = (perf_counter() - start_global) * 1000
-        times["total_ms"] = round(total, 3)
-        return log_tentative_pointage(
+    def log(self, statut, message):
+        total = self.total()
+        _log_async(
             etape=EtapePointage.ENREGISTREMENT,
             statut=statut,
             message=message,
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=times["total_ms"],
-            temps_detail=times,
-            **kwargs,
+            image_bytes=self.image_bytes,
+            mac_address=self.mac_address,
+            type_pointage=self.type_pointage,
+            temps_ms=total,
+            temps_detail=dict(self.times),
+            idpers=self.id_value,
+            role=self.role,
+            score_face=self.score_face,
+            second_score=self.second_score,
         )
 
+    def error(self, message, status):
+        self.log(StatutPointage.ERREUR, message)
+        delete_image(self.temp_id)
+        return jsonify({"error": message, "performance": dict(self.times)}), status
+
+    def already(self, periode, heure_deja, message):
+        """Déjà pointé (vu en base) : on alimente le cache pour la prochaine fois."""
+        mark_done(self.id_value, self.type_str, periode, heure_deja)
+        return self.error(message, 400)
+
+    def start_embedding_update(self):
+        run_in_background(
+            _task_update_embedding,
+            self.id_value, self.emb_list, self.score_face, self.second_score,
+        )
+
+    def acquire(self):
+        self._locked = acquire_lock(self.id_value, self.type_str)
+        return self._locked
+
+    def release(self):
+        if self._locked:
+            release_lock(self.id_value, self.type_str)
+            self._locked = False
+
+    def success(self, pointage, personnel, periode, notif_description, message, payload):
+        mark_done(self.id_value, self.type_str, periode, self.heure_str)
+
+        run_in_background(
+            _task_notify,
+            pointage.id, personnel.idpers, notif_description, pointage.date.isoformat(),
+        )
+        if self.descriptor_list:
+            run_in_background(_task_update_descriptor, self.id_value, self.descriptor_list)
+
+        self.log(StatutPointage.SUCCES, message)
+        delete_image(self.temp_id)
+
+        self.total()
+        payload["performance"] = dict(self.times)
+        return jsonify(payload), 200
+
+
+  
+ #========================================================
+# ÉTAPE 4 : ENREGISTREMENT ENTRÉE
+# ============================================================
+@bp.route("/facial_client/step4-enregistrer", methods=["POST"])
+def facial_client_step4_enregistrer():
+    if datetime.now().weekday() >= 5:
+        return jsonify({"error": "On est weekend !"}), 400
+
+    ctx = _Step4("entree")
+
+    if not ctx.data:
+        return jsonify({"error": "Corps de requête JSON requis"}), 400
+    if not ctx.role or ctx.id_value is None:
+        return jsonify({"error": "Données de reconnaissance manquantes"}), 400
+    if ctx.role != "personnel":
+        return ctx.error("Rôle non autorisé", 403)
+
+    now = ctx.now
+    heure = now.time()
+    today = now.date()
+    id_value = ctx.id_value
+
     try:
-        heure = now.time()
-        today = now.date()
-        heure_str = now.strftime("%Hh:%M")
+        # Apprentissage en tâche de fond (diffusé aux autres instances)
+        ctx.start_embedding_update()
 
-        # 2. Création des pointages vides
-        t_db = perf_counter()
-        creer_pointages_vides_par_service(id_value)
-        times["db_queries_ms"] = round((perf_counter() - t_db) * 1000, 3)
+        # ---- Personnel + horaires ----
+        t0 = perf_counter()
+        personnel = Personnels.query.get(id_value)
+        if not personnel:
+            return ctx.error("Personnel introuvable", 404)
 
-        # ================= CAS PERSONNEL =================
-        if role == "personnel":
-            # 3. Mise à jour de l'embedding
-            t_embed = perf_counter()
-            update_personnel_embedding(
-                id_value,
-                emb,
-                score_face,
-                second_score,
-                alpha=0.15,
-                min_score_update=0.65,
-                min_gap=0.15
-            )
-            times["embedding_update_ms"] = round((perf_counter() - t_embed) * 1000, 3)
+        service = personnel.division.service
+        horaires = service.horaire
+        if not horaires:
+            return ctx.error("Horaires non configurés pour ce service", 500)
+        ctx.tick("db_personnel_ms", t0)
 
-            # 4. Requêtes DB
-            t_db2 = perf_counter()
-            pointage = Pointage.query.filter_by(idpers=id_value, date=today).first()
-            personnel = Personnels.query.get(id_value)
-            if not personnel:
-                _log(StatutPointage.ERREUR, "Personnel introuvable",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({"error": "Personnel introuvable"}), 404
+        # ---- Pointages vides : une seule fois par jour et par service ----
+        t0 = perf_counter()
+        if once_per_day("pointages_vides", service.idserv):
+            try:
+                creer_pointages_vides_par_service(id_value)
+            except Exception:
+                reset_once_per_day("pointages_vides", service.idserv)
+                raise
+        ctx.tick("pointages_vides_ms", t0)
 
-            horaires = personnel.division.service.horaire
-            is_surface = personnel and personnel.role == "surface"
-            client = Client.query.filter_by(idpers=id_value).first()
-            
-            if not horaires:
-                _log(StatutPointage.ERREUR, "Horaires non configurés pour ce service",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({"error": "Horaires non configurés pour ce service"}), 500
+        # ---- Période ----
+        is_surface = personnel.role == "surface"
+        if is_surface:
+            periode = "unique"
+        elif to_time(horaires.entree_matin_debut) <= heure <= to_time(horaires.sortie_matin_fin):
+            periode = "matin"
+        elif to_time(horaires.entree_soir_debut) <= heure < to_time(horaires.sortie_soir_debut):
+            periode = "soir"
+        else:
+            return ctx.error("Heure non valide pour pointer.", 400)
 
-            times["db_queries_ms"] += round((perf_counter() - t_db2) * 1000, 3)
+        # ---- Refus instantané (Redis) ----
+        deja = already_done(id_value, "entree", periode)
+        if deja:
+            libelle = {"unique": "aujourd'hui", "matin": "le matin", "soir": "l'après-midi"}[periode]
+            return ctx.error(f"Déjà pointé {libelle} à {deja}", 400)
 
-            # 5. Création du pointage si inexistant
-            t_pointage = perf_counter()
-            if not pointage:
-                pointage = Pointage(idpers=id_value, date=today, retard_total_minutes=0)
-                db.session.add(pointage)
-                db.session.commit()
-            times["pointage_creation_ms"] = round((perf_counter() - t_pointage) * 1000, 3)
+        if not ctx.acquire():
+            return jsonify({"error": "Pointage déjà en cours, patientez."}), 429
 
-            # ================= CAS AGENT DE SURFACE =================
-            if is_surface:
-                t_surface = perf_counter()
-                
-                if pointage.absence_unique:
-                    _log(StatutPointage.ERREUR, "Vous êtes déjà marqué absent aujourd'hui.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    return jsonify({"error": "Vous êtes déjà marqué absent aujourd'hui."}), 400
-                    
-                if pointage.heure_entree_unique:
-                    ancienne = pointage.heure_entree_unique.strftime("%Hh:%M")
-                    _log(StatutPointage.ERREUR, f"Déjà pointé aujourd'hui à {ancienne}",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    return jsonify({"error": f"Déjà pointé aujourd'hui à {ancienne}"}), 400
+        # ---- Pointage du jour ----
+        t0 = perf_counter()
+        pointage = Pointage.query.filter_by(idpers=id_value, date=today).first()
+        client = Client.query.filter_by(idpers=id_value).first()
 
-                # Enregistrement du pointage
-                t_surface_save = perf_counter()
-                pointage.heure_entree_unique = now
-                pointage.retard_matin = False
-                pointage.retard_soir = False
-                pointage.retard_matin_minutes = 0
-                pointage.retard_soir_minutes = 0
-                pointage.retard_total_minutes = 0
-                pointage.absence = False
-                pointage.absence_unique = False
-                pointage.presence = True
+        if not pointage:
+            pointage = Pointage(idpers=id_value, date=today, retard_total_minutes=0)
+            db.session.add(pointage)
+            db.session.commit()
+        ctx.tick("db_pointage_ms", t0)
 
-                db.session.commit()
-                times["surface_processing_ms"] = round((perf_counter() - t_surface_save) * 1000, 3)
+        # ================= AGENT DE SURFACE =================
+        if is_surface:
+            if pointage.absence_unique:
+                return ctx.error("Vous êtes déjà marqué absent aujourd'hui.", 400)
 
-                # Notification
-                t_notif = perf_counter()
-                notification = Notification(
-                    idpointage=pointage.id,
-                    idpers=personnel.idpers,
-                    description=f"Pointage surface enregistré pour {personnel.matricule}",
-                    etat=False,
-                )
-                db.session.add(notification)
-                db.session.commit()
-                times["notification_ms"] = round((perf_counter() - t_notif) * 1000, 3)
+            if pointage.heure_entree_unique:
+                ancienne = pointage.heure_entree_unique.strftime("%Hh:%M")
+                return ctx.already("unique", ancienne, f"Déjà pointé aujourd'hui à {ancienne}")
 
-                # Mise à jour du descripteur
-                if face_descriptor is not None:
-                    t_desc = perf_counter()
-                    personnel = Personnels.query.get(id_value)
-                    if personnel:
-                        personnel.set_faceapi_descriptor(face_descriptor)
-                        db.session.commit()
-                    times["descriptor_update_ms"] = round((perf_counter() - t_desc) * 1000, 3)
+            t0 = perf_counter()
+            pointage.heure_entree_unique = now
+            pointage.retard_matin = False
+            pointage.retard_soir = False
+            pointage.retard_matin_minutes = 0
+            pointage.retard_soir_minutes = 0
+            pointage.retard_total_minutes = 0
+            pointage.absence = False
+            pointage.absence_unique = False
+            pointage.presence = True
+            db.session.commit()
+            ctx.tick("save_ms", t0)
 
-                # SocketIO
-                t_socket = perf_counter()
-                socketio.emit(
-                    "pointage_update",
-                    {
-                        "idnotif": notification.id,
-                        "idpers": personnel.idpers,
-                        "idpointage": pointage.id,
-                        "description": notification.description,
-                        "etat": notification.etat,
-                        "date": pointage.date.isoformat(),
-                    },
-                )
-                times["socketio_ms"] = round((perf_counter() - t_socket) * 1000, 3)
-
-                # Log succès
-                _log(StatutPointage.SUCCES, f"Pointage surface enregistré pour {personnel.matricule}",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-
-                # Cleanup
-                t_cleanup = perf_counter()
-                _cleanup_temp_image(image_path)
-                times["cleanup_ms"] = round((perf_counter() - t_cleanup) * 1000, 3)
-
-                times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
-
-                return jsonify({
+            return ctx.success(
+                pointage, personnel, "unique",
+                notif_description=f"Pointage surface enregistré pour {personnel.matricule}",
+                message=f"Pointage surface enregistré pour {personnel.matricule}",
+                payload={
                     "message": f"Pointage d'agent surface enregistré pour {personnel.matricule}",
                     "speech": "Pointage d'agent surface enregistré avec succès",
                     "personnel": personnel.to_dict(),
                     "client": client.to_dict() if client else None,
-                    "heure_de_pointage": heure_str,
+                    "heure_de_pointage": ctx.heure_str,
                     "pointage": pointage.to_dict(),
-                    "performance": times
-                }), 200
-
-            # ================= CAS PERSONNEL STANDARD =================
-            heure_now = now.time()
-
-            t_horaires = perf_counter()
-            if to_time(horaires.entree_matin_debut) <= heure_now <= to_time(horaires.sortie_matin_fin):
-                periode = "matin"
-            elif to_time(horaires.entree_soir_debut) <= heure_now < to_time(horaires.sortie_soir_debut):
-                periode = "soir"
-            else:
-                _log(StatutPointage.ERREUR, "Heure non valide pour pointer.",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({"error": "Heure non valide pour pointer."}), 400
-            times["horaires_ms"] = round((perf_counter() - t_horaires) * 1000, 3)
-
-            # ---------------- MATIN ----------------
-            if periode == "matin":
-                t_matin = perf_counter()
-                
-                if pointage.absence_matin:
-                    _log(StatutPointage.ERREUR, "Déjà marqué absent le matin.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": "Déjà marqué absent le matin."}), 400
-
-                if pointage.heure_entree_matin:
-                    ancienne = pointage.heure_entree_matin.strftime("%Hh:%M")
-                    _log(StatutPointage.ERREUR, f"Déjà pointé le matin à {ancienne}",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": f"Déjà pointé le matin à {ancienne}"}), 400
-
-                t_matin_save = perf_counter()
-                pointage.heure_entree_matin = now
-
-                retard_matin = 0
-                heure_limite_matin = to_time(horaires.entree_matin_fin)
-
-                if heure > heure_limite_matin:
-                    autorisation_retard = a_autorisation_retard(
-                        id_value, today, PeriodeAutorisation.matin
-                    )
-                    if autorisation_retard:
-                        retard_matin = 0
-                        pointage.retard_matin = False
-                    else:
-                        retard_matin = int(
-                            (
-                                datetime.combine(today, heure)
-                                - datetime.combine(today, heure_limite_matin)
-                            ).total_seconds()
-                            / 60
-                        )
-                        pointage.retard_matin = True
-                else:
-                    pointage.retard_matin = False
-
-                pointage.retard_matin_minutes = retard_matin
-                pointage.retard_total_minutes += retard_matin
-                retard_minutes = retard_matin
-                pointage.absence_matin = False
-                pointage.presence = True
-                
-                times["matin_processing_ms"] = round((perf_counter() - t_matin_save) * 1000, 3)
-
-            # ---------------- APRÈS-MIDI ----------------
-            elif periode == "soir":
-                t_soir = perf_counter()
-                marquer_absents_matin_non_pointes()
-
-                if pointage.absence_soir:
-                    _log(StatutPointage.ERREUR, "Déjà marqué absent l'après-midi.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": "Déjà marqué absent l'après-midi."}), 400
-
-                if pointage.heure_entree_soir:
-                    ancienne = pointage.heure_entree_soir.strftime("%Hh:%M")
-                    _log(StatutPointage.ERREUR, f"Déjà pointé l'après-midi à {ancienne}",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": f"Déjà pointé l'après-midi à {ancienne}"}), 400
-
-                t_soir_save = perf_counter()
-                pointage.heure_entree_soir = now
-                seuil_retard = to_time(horaires.entree_soir_fin)
-                delta_minutes = max(0, int(
-                    (datetime.combine(today, heure_now)
-                     - datetime.combine(today, seuil_retard)
-                     ).total_seconds() / 60
-                ))
-                autorisation_retard = a_autorisation_retard(
-                    id_value, today, PeriodeAutorisation.apres_midi
-                )
-
-                if delta_minutes > 0:
-                    if autorisation_retard:
-                        pointage.retard_soir = False
-                        pointage.retard_soir_minutes = 0
-                    else:
-                        pointage.retard_soir = True
-                        pointage.retard_soir_minutes = delta_minutes
-                else:
-                    pointage.retard_soir = False
-                    pointage.retard_soir_minutes = 0
-
-                pointage.retard_total_minutes += pointage.retard_soir_minutes
-                retard_minutes = pointage.retard_soir_minutes
-                pointage.heure_entree_soir = now
-                pointage.absence_soir = False
-                pointage.presence = True
-                
-                times["soir_processing_ms"] = round((perf_counter() - t_soir_save) * 1000, 3)
-
-            else:
-                _log(StatutPointage.ERREUR, "Heure non valide pour pointer.",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({"error": "Heure non valide pour pointer."}), 400
-
-            pointage.absence = pointage.absence_matin and pointage.absence_soir
-
-            # ---------------- Notification ----------------
-            t_notif = perf_counter()
-            notification = Notification(
-                idpointage=pointage.id,
-                idpers=personnel.idpers,
-                description=f"Pointage enregistré pour {personnel.matricule}",
-                etat=False
-            )
-            db.session.add(notification)
-            db.session.commit()
-            times["notification_ms"] = round((perf_counter() - t_notif) * 1000, 3)
-
-            # ---------------- Mise à jour du descripteur ----------------
-            if face_descriptor is not None:
-                t_desc = perf_counter()
-                personnel = Personnels.query.get(id_value)
-                if personnel:
-                    personnel.set_faceapi_descriptor(face_descriptor)
-                    db.session.commit()
-                times["descriptor_update_ms"] = round((perf_counter() - t_desc) * 1000, 3)
-
-            # ---------------- SocketIO ----------------
-            t_socket = perf_counter()
-            socketio.emit(
-                "pointage_update",
-                {
-                    "idnotif": notification.id,
-                    "idpers": personnel.idpers,
-                    "idpointage": pointage.id,
-                    "description": notification.description,
-                    "etat": notification.etat,
-                    "date": pointage.date.isoformat(),
                 },
             )
-            times["socketio_ms"] = round((perf_counter() - t_socket) * 1000, 3)
 
-            # ---------------- Cleanup ----------------
-            t_cleanup = perf_counter()
-            
-          
-            times["cleanup_ms"] = round((perf_counter() - t_cleanup) * 1000, 3)
+        # ================= PERSONNEL STANDARD =================
+        retard_minutes = 0
+        t0 = perf_counter()
 
-            retard_minutes = retard_minutes if 'retard_minutes' in locals() else 0
+        if periode == "matin":
+            if pointage.absence_matin:
+                return ctx.error("Déjà marqué absent le matin.", 400)
 
-            if retard_minutes > 0:
-                message = f"Pointage enregistré avec succès pour {personnel.matricule} avec {retard_minutes} minutes de retard"
-                speech_msg = f"Pointage enregistré avec {retard_minutes} minutes de retard"
+            if pointage.heure_entree_matin:
+                ancienne = pointage.heure_entree_matin.strftime("%Hh:%M")
+                return ctx.already("matin", ancienne, f"Déjà pointé le matin à {ancienne}")
+
+            pointage.heure_entree_matin = now
+            heure_limite_matin = to_time(horaires.entree_matin_fin)
+
+            if heure > heure_limite_matin:
+                if a_autorisation_retard(id_value, today, PeriodeAutorisation.matin):
+                    retard_minutes = 0
+                    pointage.retard_matin = False
+                else:
+                    retard_minutes = int(
+                        (datetime.combine(today, heure)
+                         - datetime.combine(today, heure_limite_matin)).total_seconds() / 60
+                    )
+                    pointage.retard_matin = True
             else:
-                message = f"Pointage enregistré avec succès pour {personnel.matricule}"
-                speech_msg = "Pointage enregistré avec succès"
+                pointage.retard_matin = False
 
-            times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
+            pointage.retard_matin_minutes = retard_minutes
+            pointage.retard_total_minutes = (pointage.retard_total_minutes or 0) + retard_minutes
+            pointage.absence_matin = False
+            pointage.presence = True
 
-            _log(StatutPointage.SUCCES, message,
-                 idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-            _cleanup_temp_image(image_path)
+        else:  # soir
+            # Marquage des absents du matin : une seule fois par jour
+            if once_per_day("absents_matin"):
+                try:
+                    marquer_absents_matin_non_pointes()
+                    db.session.refresh(pointage)
+                except Exception:
+                    reset_once_per_day("absents_matin")
+                    raise
 
-            return jsonify({
+            if pointage.absence_soir:
+                return ctx.error("Déjà marqué absent l'après-midi.", 400)
+
+            if pointage.heure_entree_soir:
+                ancienne = pointage.heure_entree_soir.strftime("%Hh:%M")
+                return ctx.already("soir", ancienne, f"Déjà pointé l'après-midi à {ancienne}")
+
+            pointage.heure_entree_soir = now
+            seuil_retard = to_time(horaires.entree_soir_fin)
+            delta_minutes = max(0, int(
+                (datetime.combine(today, heure)
+                 - datetime.combine(today, seuil_retard)).total_seconds() / 60
+            ))
+
+            if delta_minutes > 0:
+                if a_autorisation_retard(id_value, today, PeriodeAutorisation.apres_midi):
+                    pointage.retard_soir = False
+                    pointage.retard_soir_minutes = 0
+                else:
+                    pointage.retard_soir = True
+                    pointage.retard_soir_minutes = delta_minutes
+            else:
+                pointage.retard_soir = False
+                pointage.retard_soir_minutes = 0
+
+            pointage.retard_total_minutes = (pointage.retard_total_minutes or 0) + pointage.retard_soir_minutes
+            retard_minutes = pointage.retard_soir_minutes
+            pointage.absence_soir = False
+            pointage.presence = True
+
+        pointage.absence = pointage.absence_matin and pointage.absence_soir
+        db.session.commit()
+        ctx.tick("save_ms", t0)
+
+        if retard_minutes > 0:
+            message = f"Pointage enregistré avec succès pour {personnel.matricule} avec {retard_minutes} minutes de retard"
+            speech_msg = f"Pointage enregistré avec {retard_minutes} minutes de retard"
+        else:
+            message = f"Pointage enregistré avec succès pour {personnel.matricule}"
+            speech_msg = "Pointage enregistré avec succès"
+
+        return ctx.success(
+            pointage, personnel, periode,
+            notif_description=f"Pointage enregistré pour {personnel.matricule}",
+            message=message,
+            payload={
                 "message": message,
                 "speech": speech_msg,
                 "personnel": personnel.to_dict(),
                 "client": client.to_dict() if client else None,
-                "heure_de_pointage": heure_str,
+                "heure_de_pointage": ctx.heure_str,
                 "pointage": pointage.to_dict(),
-                "performance": times
-            }), 200
-
-        _log(StatutPointage.ERREUR, "Rôle non autorisé", idpers=id_value, role=role)
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": "Rôle non autorisé"}), 403
-
-    except Exception as e:
-        times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
-        _log(StatutPointage.ERREUR, str(e), idpers=id_value, role=role)
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": str(e), "performance": times}), 500
-
-@bp.route("/facial_client_sortie/step4-enregistrer", methods=["POST"])
-def facial_client_sortie_step4_enregistrer():
-    # ⏱️ DÉBUT DU CHRONO GLOBAL
-    start_global = perf_counter()
-    
-    # Dictionnaire des temps
-    times = {
-        "weekend_check_ms": 0,
-        "parse_ms": 0,
-        "validation_ms": 0,
-        "embedding_update_ms": 0,
-        "db_queries_ms": 0,
-        "surface_processing_ms": 0,
-        "sortie_matin_ms": 0,
-        "sortie_soir_ms": 0,
-        "notification_ms": 0,
-        "socketio_ms": 0,
-        "descriptor_update_ms": 0,
-        "cleanup_ms": 0,
-        "total_ms": 0
-    }
-
-    # 1. Parsing de la requête
-    t_parse = perf_counter()
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Corps de requête JSON requis"}), 400
-
-    now = datetime.now()
-    if now.weekday() >= 5:
-        return jsonify({"error": "On est weekend !"}), 400
-    times["weekend_check_ms"] = round((perf_counter() - t_parse) * 1000, 3)
-
-    role = data.get("role")
-    id_value = data.get("id_value")
-    emb_list = data.get("emb")
-    score_face = data.get("score_face")
-    second_score = data.get("second_score")
-    descriptor_list = data.get("face_descriptor")
-    mac_address = data.get("mac_address")
-    temp_id = data.get("temp_id")
-    type_pointage_str = data.get("type_pointage")
-    type_pointage = TypePointage(type_pointage_str) if type_pointage_str in ("entree", "sortie") else None
-
-    if not role or id_value is None:
-        return jsonify({"error": "Données de reconnaissance manquantes"}), 400
-
-    import numpy as np
-
-    emb = np.array(emb_list, dtype=np.float32) if emb_list is not None else None
-    face_descriptor = (
-        np.array(descriptor_list, dtype=np.float32) if descriptor_list else None
-    )
-
-    image_path = os.path.join(TEMP_UPLOAD_DIR, f"{temp_id}.jpg") if temp_id else None
-    times["parse_ms"] = round((perf_counter() - t_parse) * 1000, 3)
-
-    def _log(statut, message, **kwargs):
-        """Wrapper local qui joint systématiquement la photo et les temps."""
-        total = (perf_counter() - start_global) * 1000
-        times["total_ms"] = round(total, 3)
-        return log_tentative_pointage(
-            etape=EtapePointage.ENREGISTREMENT,
-            statut=statut,
-            message=message,
-            image_path=image_path,
-            mac_address=mac_address,
-            type_pointage=type_pointage,
-            temps_ms=times["total_ms"],
-            temps_detail=times,
-            **kwargs,
+            },
         )
 
+    except Exception as e:
+        db.session.rollback()
+        return ctx.error(str(e), 500)
+
+    finally:
+        ctx.release()
+
+
+
+# ============================================================
+# ÉTAPE 4 : ENREGISTREMENT SORTIE
+# ============================================================
+@bp.route("/facial_client_sortie/step4-enregistrer", methods=["POST"])
+def facial_client_sortie_step4_enregistrer():
+    if datetime.now().weekday() >= 5:
+        return jsonify({"error": "On est weekend !"}), 400
+
+    ctx = _Step4("sortie")
+
+    if not ctx.data:
+        return jsonify({"error": "Corps de requête JSON requis"}), 400
+    if not ctx.role or ctx.id_value is None:
+        return jsonify({"error": "Données de reconnaissance manquantes"}), 400
+    if ctx.role != "personnel":
+        return ctx.error("Rôle non autorisé", 403)
+
+    now = ctx.now
+    heure = now.time()
+    today = now.date()
+    id_value = ctx.id_value
+
     try:
-        heure = now.time()
-        heure_str = now.strftime("%Hh:%M")
-        today = now.date()
+        ctx.start_embedding_update()
 
-        # -------------------------
-        # CAS PERSONNEL
-        # -------------------------
-        if role == "personnel":
-            # 2. Mise à jour de l'embedding
-            t_embed = perf_counter()
-            update_personnel_embedding(
-                id_value,
-                emb,
-                score_face,
-                second_score,
-                alpha=0.15,
-                min_score_update=0.65,
-                min_gap=0.15
+        # ---- Personnel + horaires ----
+        t0 = perf_counter()
+        personnel = Personnels.query.get(id_value)
+        if not personnel:
+            return ctx.error("Personnel introuvable", 404)
+
+        horaires = personnel.division.service.horaire
+        if not horaires:
+            return ctx.error("Horaires non configurés pour ce service", 500)
+        ctx.tick("db_personnel_ms", t0)
+
+        # ---- Période de sortie ----
+        is_surface = personnel.role == "surface"
+        via_autorisation = False
+
+        if is_surface:
+            periode = "unique"
+        elif to_time(horaires.sortie_matin_debut) <= heure <= to_time(horaires.sortie_matin_fin):
+            periode = "matin"
+        elif to_time(horaires.sortie_soir_debut) <= heure <= to_time(horaires.sortie_soir_fin):
+            periode = "soir"
+        else:
+            periode_actuelle = (
+                PeriodeAutorisation.matin
+                if heure < to_time(horaires.entree_soir_debut)
+                else PeriodeAutorisation.apres_midi
             )
-            times["embedding_update_ms"] = round((perf_counter() - t_embed) * 1000, 3)
+            autorisation_ok = a_autorisation_sortie(id_value, today, periode_actuelle)
+            if not autorisation_ok:
+                return ctx.error("Heure non valide pour pointer la sortie.", 400)
+            periode = "matin" if autorisation_ok.periode == PeriodeAutorisation.matin else "soir"
+            via_autorisation = True
 
-            # 3. Requêtes DB
-            t_db = perf_counter()
-            pointage = Pointage.query.filter_by(idpers=id_value, date=today).first()
-            personnel = Personnels.query.get(id_value)
-            client = Client.query.filter_by(idpers=id_value).first()
+        # ---- Refus instantané (Redis) ----
+        deja = already_done(id_value, "sortie", periode)
+        if deja:
+            messages = {
+                "unique": f"Sortie déjà enregistrée à {deja}",
+                "matin": f"Sortie matin déjà pointée à {deja}",
+                "soir": f"Sortie après-midi déjà pointée à {deja}",
+            }
+            return ctx.error(messages[periode], 400)
 
-            if not personnel:
-                _log(StatutPointage.ERREUR, "Personnel introuvable",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({"error": "Personnel introuvable"}), 404
+        if not ctx.acquire():
+            return jsonify({"error": "Pointage déjà en cours, patientez."}), 429
 
-            horaires = personnel.division.service.horaire
-            if not horaires:
-                _log(StatutPointage.ERREUR, "Horaires non configurés pour ce service",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({"error": "Horaires non configurés pour ce service"}), 500
+        # ---- Pointage du jour ----
+        t0 = perf_counter()
+        pointage = Pointage.query.filter_by(idpers=id_value, date=today).first()
+        client = Client.query.filter_by(idpers=id_value).first()
+        ctx.tick("db_pointage_ms", t0)
 
-            times["db_queries_ms"] = round((perf_counter() - t_db) * 1000, 3)
+        # ================= AGENT DE SURFACE =================
+        if is_surface:
+            if not pointage:
+                return ctx.error("Aucune entrée trouvée aujourd'hui.", 400)
 
-            # 🔴 Cas agent de surface
-            if personnel.role == "surface":
-                t_surface = perf_counter()
-                autorisation_ok_srtuface = a_autorisation_sortie_surface(id_value, today)
+            if pointage.absence_unique:
+                return ctx.error("Agent déjà marqué absent aujourd'hui.", 400)
 
-                if not pointage:
-                    _log(StatutPointage.ERREUR, "Aucune entrée trouvée aujourd'hui.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": "Aucune entrée trouvée aujourd'hui."}), 400
+            if not pointage.heure_entree_unique:
+                return ctx.error("Entrée non trouvée.", 400)
 
-                if pointage.absence_unique:
-                    _log(StatutPointage.ERREUR, "Agent déjà marqué absent aujourd'hui.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": "Agent déjà marqué absent aujourd'hui."}), 400
+            if pointage.heure_sortie_unique:
+                ancienne = pointage.heure_sortie_unique.strftime("%Hh:%M")
+                return ctx.already("unique", ancienne, f"Sortie déjà enregistrée à {ancienne}")
 
-                if not pointage.heure_entree_unique:
-                    _log(StatutPointage.ERREUR, "Entrée non trouvée.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": "Entrée non trouvée."}), 400
+            entree_time = pointage.heure_entree_unique
+            if isinstance(entree_time, datetime):
+                entree_time = entree_time.time()
 
-                if pointage.heure_sortie_unique:
-                    ancienne = pointage.heure_sortie_unique.strftime("%Hh:%M")
-                    _log(StatutPointage.ERREUR, f"Sortie déjà enregistrée à {ancienne}",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": f"Sortie déjà enregistrée à {ancienne}"
-                    }), 400
+            sortie_autorisee_apres = datetime.combine(today, entree_time) + timedelta(hours=1)
 
-                entree_time = pointage.heure_entree_unique
+            if now < sortie_autorisee_apres and not a_autorisation_sortie_surface(id_value, today):
+                return ctx.error("La sortie n'est pas autorisée", 403)
 
-                if not entree_time:
-                    _log(StatutPointage.ERREUR, "Entrée non trouvée.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({"error": "Entrée non trouvée."}), 400
+            t0 = perf_counter()
+            pointage.heure_sortie_unique = now
+            db.session.commit()
+            ctx.tick("save_ms", t0)
 
-                if isinstance(entree_time, datetime):
-                    entree_time = entree_time.time()
-
-                sortie_autorisee_apres = datetime.combine(today, entree_time) + timedelta(hours=1)
-
-                if now < sortie_autorisee_apres:
-                    if not autorisation_ok_srtuface:
-                        _log(StatutPointage.ERREUR, "La sortie n'est pas autorisée",
-                             idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                        _cleanup_temp_image(image_path)
-                        return jsonify({
-                            "error": "La sortie n'est pas autorisée"
-                        }), 403
-
-                t_surface_save = perf_counter()
-                pointage.heure_sortie_unique = now
-                times["surface_processing_ms"] = round((perf_counter() - t_surface_save) * 1000, 3)
-
-                notif_description = f"Sortie enregistrée (surface) pour {personnel.matricule}"
-
-                # Notification
-                t_notif = perf_counter()
-                notification = Notification(
-                    idpointage=pointage.id,
-                    idpers=personnel.idpers,
-                    description=notif_description,
-                    etat=False,
-                )
-                db.session.add(notification)
-                db.session.commit()
-                times["notification_ms"] = round((perf_counter() - t_notif) * 1000, 3)
-
-                # SocketIO
-                t_socket = perf_counter()
-                socketio.emit(
-                    "pointage_update",
-                    {
-                        "idnotif": notification.id,
-                        "idpers": personnel.idpers,
-                        "idpointage": pointage.id,
-                        "description": notif_description,
-                        "etat": notification.etat,
-                        "date": pointage.date.isoformat(),
-                    },
-                )
-                times["socketio_ms"] = round((perf_counter() - t_socket) * 1000, 3)
-
-                # Log succès
-                _log(StatutPointage.SUCCES, notif_description,
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-
-                # Cleanup
-                t_cleanup = perf_counter()
-                _cleanup_temp_image(image_path)
-                times["cleanup_ms"] = round((perf_counter() - t_cleanup) * 1000, 3)
-
-                times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
-
-                return jsonify({
+            description = f"Sortie enregistrée (surface) pour {personnel.matricule}"
+            return ctx.success(
+                pointage, personnel, "unique",
+                notif_description=description,
+                message=description,
+                payload={
                     "message": "Sortie enregistrée avec succès (agent de surface)",
                     "speech": "Sortie d'agent de surface enregistré avec succès",
                     "personnel": personnel.to_dict(),
-                    "heure_de_sortie": heure_str,
+                    "heure_de_sortie": ctx.heure_str,
                     "pointage": pointage.to_dict(),
-                    "performance": times
-                }), 200
-
-            if not pointage or (
-                not pointage.heure_entree_matin and
-                not pointage.heure_entree_soir
-            ):
-                _log(StatutPointage.ERREUR, "Aucune entrée trouvée aujourd'hui.",
-                     idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                _cleanup_temp_image(image_path)
-                return jsonify({
-                    "error": "Aucune entrée trouvée aujourd'hui."
-                }), 400
-
-            heure = now.time()
-
-            # ---------------- Période "générale" (pour la recherche d'autorisation) ----------------
-            t_periode = perf_counter()
-            if heure < to_time(horaires.entree_soir_debut):
-                periode_actuelle = PeriodeAutorisation.matin
-            else:
-                periode_actuelle = PeriodeAutorisation.apres_midi
-
-            autorisation_ok = a_autorisation_sortie(id_value, today, periode_actuelle)
-            times["horaires_ms"] = round((perf_counter() - t_periode) * 1000, 3)
-
-            # ---------------- SORTIE MATIN ----------------
-            if to_time(horaires.sortie_matin_debut) <= heure <= to_time(horaires.sortie_matin_fin):
-                t_sortie_matin = perf_counter()
-
-                if pointage.absence_matin:
-                    _log(StatutPointage.ERREUR, "Déjà marqué absent le matin.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": "Déjà marqué absent le matin."
-                    }), 400
-
-                if not pointage.heure_entree_matin:
-                    _log(StatutPointage.ERREUR, "Entrée matin non trouvée.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": "Entrée matin non trouvée."
-                    }), 400
-
-                if pointage.heure_sortie_matin:
-                    ancienne = pointage.heure_sortie_matin.strftime("%Hh:%M")
-                    _log(StatutPointage.ERREUR, f"Sortie matin déjà pointée à {ancienne}",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": f"Sortie matin déjà pointée à {ancienne}"
-                    }), 400
-
-                t_sortie_matin_save = perf_counter()
-                pointage.heure_sortie_matin = now
-                times["sortie_matin_ms"] = round((perf_counter() - t_sortie_matin_save) * 1000, 3)
-
-            # ---------------- SORTIE APRÈS-MIDI ----------------
-            elif to_time(horaires.sortie_soir_debut) <= heure <= to_time(horaires.sortie_soir_fin):
-                t_sortie_soir = perf_counter()
-
-                if pointage.absence_soir:
-                    _log(StatutPointage.ERREUR, "Déjà marqué absent l'après-midi.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": "Déjà marqué absent l'après-midi."
-                    }), 400
-
-                if not pointage.heure_entree_soir:
-                    _log(StatutPointage.ERREUR, "Entrée après-midi non trouvée.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": "Entrée après-midi non trouvée."
-                    }), 400
-
-                if pointage.heure_sortie_soir:
-                    ancienne = pointage.heure_sortie_soir.strftime("%Hh:%M")
-                    _log(StatutPointage.ERREUR, f"Sortie après-midi déjà pointée à {ancienne}",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": f"Sortie après-midi déjà pointée à {ancienne}"
-                    }), 400
-
-                t_sortie_soir_save = perf_counter()
-                pointage.heure_sortie_soir = now
-                times["sortie_soir_ms"] = round((perf_counter() - t_sortie_soir_save) * 1000, 3)
-
-            else:
-                if autorisation_ok:
-                    t_autorisation = perf_counter()
-                    if autorisation_ok.periode == PeriodeAutorisation.matin:
-                        if not pointage.heure_sortie_matin:
-                            pointage.heure_sortie_matin = now
-                            type_sortie = "matin"
-                            times["sortie_matin_ms"] = round((perf_counter() - t_autorisation) * 1000, 3)
-                        else:
-                            _log(StatutPointage.ERREUR, "Sortie matin déjà enregistrée",
-                                 idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                            _cleanup_temp_image(image_path)
-                            return jsonify({"error": "Sortie matin déjà enregistrée"}), 400
-
-                    elif autorisation_ok.periode == PeriodeAutorisation.apres_midi:
-                        if not pointage.heure_sortie_soir:
-                            pointage.heure_sortie_soir = now
-                            type_sortie = "soir"
-                            times["sortie_soir_ms"] = round((perf_counter() - t_autorisation) * 1000, 3)
-                        else:
-                            _log(StatutPointage.ERREUR, "Sortie après-midi déjà enregistrée",
-                                 idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                            _cleanup_temp_image(image_path)
-                            return jsonify({"error": "Sortie après-midi déjà enregistrée"}), 400
-
-                else:
-                    _log(StatutPointage.ERREUR, "Heure non valide pour pointer la sortie.",
-                         idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-                    _cleanup_temp_image(image_path)
-                    return jsonify({
-                        "error": "Heure non valide pour pointer la sortie."
-                    }), 400
-
-            # ---------------- Notification ----------------
-            t_notif = perf_counter()
-            notif_description = f"Sortie enregistrée pour {personnel.matricule}"
-
-            notification = Notification(
-                idpointage=pointage.id,
-                idpers=personnel.idpers,
-                description=notif_description,
-                etat=False,
-            )
-
-            db.session.add(notification)
-            db.session.commit()
-            times["notification_ms"] = round((perf_counter() - t_notif) * 1000, 3)
-
-            # ---------------- Mise à jour du descripteur ----------------
-            if face_descriptor is not None:
-                t_desc = perf_counter()
-                personnel = Personnels.query.get(id_value)
-                if personnel:
-                    personnel.set_faceapi_descriptor(face_descriptor)
-                    db.session.commit()
-                times["descriptor_update_ms"] = round((perf_counter() - t_desc) * 1000, 3)
-
-            # ---------------- SocketIO ----------------
-            t_socket = perf_counter()
-            socketio.emit(
-                "pointage_update",
-                {
-                    "idnotif": notification.id,
-                    "idpers": personnel.idpers,
-                    "idpointage": pointage.id,
-                    "description": notif_description,
-                    "etat": notification.etat,
-                    "date": pointage.date.isoformat(),
                 },
             )
-            times["socketio_ms"] = round((perf_counter() - t_socket) * 1000, 3)
 
-            # ---------------- Cleanup ----------------
-            t_cleanup = perf_counter()
-            
-            times["cleanup_ms"] = round((perf_counter() - t_cleanup) * 1000, 3)
+        # ================= PERSONNEL STANDARD =================
+        if not pointage or (not pointage.heure_entree_matin and not pointage.heure_entree_soir):
+            return ctx.error("Aucune entrée trouvée aujourd'hui.", 400)
 
-            _log(StatutPointage.SUCCES, f"Sortie enregistrée avec succès pour {personnel.matricule}",
-                 idpers=id_value, role=role, score_face=score_face, second_score=second_score)
-            _cleanup_temp_image(image_path)
+        t0 = perf_counter()
 
-            times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
+        if periode == "matin":
+            if via_autorisation:
+                if pointage.heure_sortie_matin:
+                    ancienne = pointage.heure_sortie_matin.strftime("%Hh:%M")
+                    return ctx.already("matin", ancienne, "Sortie matin déjà enregistrée")
+            else:
+                if pointage.absence_matin:
+                    return ctx.error("Déjà marqué absent le matin.", 400)
+                if not pointage.heure_entree_matin:
+                    return ctx.error("Entrée matin non trouvée.", 400)
+                if pointage.heure_sortie_matin:
+                    ancienne = pointage.heure_sortie_matin.strftime("%Hh:%M")
+                    return ctx.already("matin", ancienne, f"Sortie matin déjà pointée à {ancienne}")
 
-            return jsonify({
-                "message": f"Sortie enregistrée avec succès pour {personnel.matricule}",
+            pointage.heure_sortie_matin = now
+
+        else:  # soir
+            if via_autorisation:
+                if pointage.heure_sortie_soir:
+                    ancienne = pointage.heure_sortie_soir.strftime("%Hh:%M")
+                    return ctx.already("soir", ancienne, "Sortie après-midi déjà enregistrée")
+            else:
+                if pointage.absence_soir:
+                    return ctx.error("Déjà marqué absent l'après-midi.", 400)
+                if not pointage.heure_entree_soir:
+                    return ctx.error("Entrée après-midi non trouvée.", 400)
+                if pointage.heure_sortie_soir:
+                    ancienne = pointage.heure_sortie_soir.strftime("%Hh:%M")
+                    return ctx.already("soir", ancienne, f"Sortie après-midi déjà pointée à {ancienne}")
+
+            pointage.heure_sortie_soir = now
+
+        db.session.commit()
+        ctx.tick("save_ms", t0)
+
+        message = f"Sortie enregistrée avec succès pour {personnel.matricule}"
+        return ctx.success(
+            pointage, personnel, periode,
+            notif_description=f"Sortie enregistrée pour {personnel.matricule}",
+            message=message,
+            payload={
+                "message": message,
                 "speech": "Sortie enregistrée avec succès",
                 "personnel": personnel.to_dict(),
                 "client": client.to_dict() if client else None,
-                "heure_de_sortie": heure_str,
+                "heure_de_sortie": ctx.heure_str,
                 "pointage": pointage.to_dict(),
-                "performance": times
-            }), 200
-
-        _log(StatutPointage.ERREUR, "Rôle non autorisé", idpers=id_value, role=role)
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": "Rôle non autorisé"}), 403
+            },
+        )
 
     except Exception as e:
-        times["total_ms"] = round((perf_counter() - start_global) * 1000, 3)
-        _log(StatutPointage.ERREUR, str(e), idpers=id_value, role=role)
-        _cleanup_temp_image(image_path)
-        return jsonify({"error": str(e), "performance": times}), 500
-    
+        db.session.rollback()
+        return ctx.error(str(e), 500)
+
+    finally:
+        ctx.release()
+
+
 import logging
 
 # Configure le logging
