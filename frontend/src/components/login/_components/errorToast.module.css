@@ -1,0 +1,212 @@
+/* ================= TOKENS M3 EXPRESSIVE ================= */
+
+.toast {
+  --m3-spring-fast: cubic-bezier(0.42, 1.67, 0.21, 0.9);
+  --m3-spring-default: cubic-bezier(0.38, 1.21, 0.22, 1);
+  --m3-effects: cubic-bezier(0.34, 0.8, 0.34, 1);
+
+  --m3-error: #ba1a1a;
+  --m3-error-container: #ffdad6;
+  --m3-on-surface: #1b3350;
+  --m3-on-surface-variant: #5b6b7b;
+}
+
+/* ================= TOAST ================= */
+
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 60;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 12px 16px 14px;
+
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  box-shadow:
+    0 16px 40px rgba(20, 50, 90, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+
+  font-family: "Poppins", sans-serif;
+  overflow: hidden;
+
+  animation: enter 600ms var(--m3-spring-default) both;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateX(120%) scale(0.9);
+    border-radius: 36px;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    border-radius: 20px;
+  }
+}
+
+.toast.leave {
+  animation: leave 280ms var(--m3-effects) forwards;
+}
+
+@keyframes leave {
+  to {
+    opacity: 0;
+    transform: translateX(110%) scale(0.95);
+  }
+}
+
+/* ================= ICÔNE ================= */
+
+.iconTile {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--m3-error-container);
+  color: var(--m3-error);
+  font-size: 1.15rem;
+  animation: iconPop 700ms var(--m3-spring-fast) 150ms both;
+}
+
+@keyframes iconPop {
+  0% {
+    transform: scale(0.4) rotate(-20deg);
+    border-radius: 50%;
+  }
+  60% {
+    transform: scale(1.1) rotate(8deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 14px;
+  }
+}
+
+/* ================= TEXTE ================= */
+
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--m3-on-surface);
+  letter-spacing: -0.1px;
+}
+
+.message {
+  font-size: 0.8rem;
+  color: var(--m3-on-surface-variant);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* ================= BOUTON FERMER ================= */
+
+.close {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--m3-on-surface-variant);
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    background-color 200ms var(--m3-effects),
+    border-radius 350ms var(--m3-spring-fast),
+    transform 350ms var(--m3-spring-fast);
+}
+
+.close:hover {
+  background-color: rgba(27, 51, 80, 0.08);
+}
+
+.close:active {
+  border-radius: 10px;
+  transform: scale(0.88);
+}
+
+.close:focus {
+  outline: none;
+}
+
+.close:focus-visible {
+  outline: 2px solid rgba(59, 130, 211, 0.6);
+  outline-offset: 2px;
+}
+
+/* ================= BARRE DE PROGRESSION ================= */
+
+.progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--m3-error);
+  opacity: 0.75;
+  transform-origin: left center;
+  animation-name: countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Pause au survol */
+.toast:hover .progress {
+  animation-play-state: paused;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 700px) {
+  .toast {
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+}
+
+/* ================= ACCESSIBILITÉ ================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.leave,
+  .iconTile {
+    animation-duration: 1ms;
+  }
+  .close {
+    transition: none;
+  }
+}
