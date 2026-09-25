@@ -4,12 +4,13 @@ import { StyledBadge } from "../Header.styles";
 import { stringAvatar } from "../Header.utils";
 
 /**
- * Reproduit exactement les 3 blocs ".avatar" (admin / responsable / personnel)
- * de l'ancien Header, en factorisant le balisage commun.
+ * Bloc compte (admin / responsable / personnel).
+ * - imageSrc non fourni -> initiales (admin)
+ * - imageSrc toujours fourni -> image (responsable)
+ * - imageSrc conditionnel + initialsName -> image ou initiales (personnel)
  *
- * - imageSrc non fourni  -> comportement identique au bloc "admin" d'origine (toujours initiales)
- * - imageSrc toujours fourni (même invalide) -> comportement "responsable" d'origine
- * - imageSrc conditionnel + initialsName -> comportement "personnel" d'origine
+ * Avatar seul au repos, nom + rôle au survol (header.module.css : .avatar / .nom).
+ * Nom trop long : coupé avec "…" + nom complet en info-bulle.
  */
 const AccountBadge = ({
   styles,
@@ -22,10 +23,22 @@ const AccountBadge = ({
   width = 47,
   height = 45,
 }) => {
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onClick?.(e);
+    }
+  };
+
   return (
     <div
       className={`${styles.avatar} ${darkMode ? styles.avatarDark : ""}`}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`Compte de ${name}${subtitle ? `, ${subtitle}` : ""}`}
+      title={name}
     >
       <div className={`${styles.nom} ${darkMode ? styles.nomDark : ""}`}>
         <h3>{name}</h3>
@@ -39,6 +52,7 @@ const AccountBadge = ({
       >
         <Avatar
           src={imageSrc}
+          alt={name}
           {...(!imageSrc && stringAvatar(initialsName || ""))}
           sx={{
             width,

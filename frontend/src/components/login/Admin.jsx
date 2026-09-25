@@ -18,7 +18,7 @@ import Button from '@mui/material/Button';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Spin } from 'antd';
 import {useNavigate} from "react-router-dom"
-import bgImage from '../../assets/logo4.jpg';
+import bgImage from '../../assets/banner1.png';
 import Alert from '@mui/material/Alert';
 import { AuthContext } from '../../AuthContext';
 import Dialog from '@mui/material/Dialog';

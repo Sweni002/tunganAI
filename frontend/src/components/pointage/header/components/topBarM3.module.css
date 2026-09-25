@@ -1,0 +1,255 @@
+/* ================= TOKENS M3 EXPRESSIVE ================= */
+
+.bar {
+  --m3-spring-fast: cubic-bezier(0.42, 1.67, 0.21, 0.9);
+  --m3-spring-default: cubic-bezier(0.38, 1.21, 0.22, 1);
+  --m3-effects: cubic-bezier(0.34, 0.8, 0.34, 1);
+
+  --m3-primary: rgb(51, 94, 143);
+  --m3-tonal: rgba(255, 255, 255, 0.65);
+  --m3-tonal-hover: rgba(255, 255, 255, 0.85);
+  --m3-state: 51, 94, 143;
+}
+
+.bar.dark {
+  --m3-tonal: rgba(255, 255, 255, 0.06);
+  --m3-tonal-hover: rgba(255, 255, 255, 0.12);
+  --m3-state: 255, 255, 255;
+}
+
+/* ================= HEADER ================= */
+
+.bar {
+  position: relative;
+  overflow: hidden;
+  transition:
+    max-height 450ms var(--m3-spring-default),
+    opacity 250ms var(--m3-effects),
+    transform 450ms var(--m3-spring-default);
+}
+
+.inner {
+  position: relative;
+}
+
+/* Entrée échelonnée (le délai vient de --d) */
+.enter {
+  animation: dropIn 650ms var(--m3-spring-default) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ================= BLOC GAUCHE ================= */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.logoTile.logoTile {
+  display: grid;
+  place-items: center;
+  padding: 6px 10px;
+  border-radius: 16px;
+  background: var(--m3-tonal);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: default;
+  transition:
+    border-radius 450ms var(--m3-spring-fast),
+    transform 450ms var(--m3-spring-fast),
+    background-color 200ms var(--m3-effects);
+}
+
+.logoTile.logoTile:hover {
+  border-radius: 999px;
+  transform: scale(1.05) rotate(-2deg);
+  background: var(--m3-tonal-hover);
+}
+
+/* Reflet qui balaie le dégradé du titre une fois au chargement */
+.title {
+  animation: shimmer 1.8s var(--m3-effects) 350ms both;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+/* ================= BANNIÈRE ================= */
+
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 42%;
+  max-width: 600px;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.bannerMask {
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 35%,
+    black 65%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 35%,
+    black 65%,
+    transparent 100%
+  );
+  animation: bannerIn 900ms var(--m3-spring-default) 200ms both;
+}
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Zoom lent en boucle */
+.bannerImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  animation: kenBurns 22s ease-in-out 1.1s infinite alternate;
+}
+
+@keyframes kenBurns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08) translateX(-2%);
+  }
+}
+
+/* ================= ZONE COMPTE ================= */
+
+.account {
+  position: relative;
+  z-index: 2;
+}
+
+.accountChip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--m3-tonal);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+  isolation: isolate;
+  cursor: pointer;
+  transition:
+    border-radius 400ms var(--m3-spring-fast),
+    transform 400ms var(--m3-spring-fast),
+    background-color 200ms var(--m3-effects);
+}
+
+/* Couche de survol / clic */
+.accountChip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgb(var(--m3-state));
+  opacity: 0;
+  transition: opacity 200ms var(--m3-effects);
+  pointer-events: none;
+}
+
+.accountChip:hover::before {
+  opacity: 0.08;
+}
+
+.accountChip:active {
+  border-radius: 16px;
+  transform: scale(0.97);
+}
+
+.accountChip:active::before {
+  opacity: 0.12;
+}
+
+/* Logo du service : cercle → carré arrondi */
+.serviceLogo.serviceLogo {
+  border-radius: 50%;
+  overflow: hidden;
+  transition:
+    border-radius 450ms var(--m3-spring-fast),
+    transform 450ms var(--m3-spring-fast);
+}
+
+.serviceLogo.serviceLogo:hover {
+  border-radius: 14px;
+  transform: scale(1.06) rotate(6deg);
+}
+
+/* ================= MOBILE ================= */
+
+.mobileAvatar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .banner {
+    display: none;
+  }
+}
+
+/* ================= ACCESSIBILITÉ ================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .title,
+  .bannerMask,
+  .bannerImg {
+    animation: none;
+  }
+  .bar,
+  .logoTile.logoTile,
+  .accountChip,
+  .serviceLogo.serviceLogo {
+    transition: none;
+  }
+}
