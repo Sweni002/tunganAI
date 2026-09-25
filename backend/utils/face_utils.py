@@ -1,7 +1,12 @@
+import base64
+import json
+import os
 import threading
 import time
+import uuid
 
 import cv2
+import eventlet
 import numpy as np
 from insightface.app import FaceAnalysis
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,12 +22,6 @@ app_arcface.prepare(ctx_id=0, det_size=(640, 640))
 
 # -------------------------------
 # Cache vectorisé thread-safe
-#
-# Au lieu d'un dict {idpers: emb} parcouru en Python, on garde :
-#   _MATRIX  : ndarray (N, D) contiguë, tous les embeddings normalisés
-#   _IDS     : ndarray (N,)  idpers de chaque ligne
-#   _ROW_OF  : dict idpers -> index de ligne (pour la mise à jour in-place)
-# La comparaison devient un seul produit matriciel BLAS.
 # -------------------------------
 _lock = threading.RLock()
 
@@ -33,15 +32,21 @@ PERSONNELS_META = {}
 
 # Cache des lignes autorisées par service : idserv -> (version, timestamp, rows)
 _SERVICE_ROWS = {}
-_SERVICE_TTL = 60.0          # secondes
-_VERSION = 0                 # incrémenté à chaque rechargement complet
+_SERVICE_TTL = 60.0
+_VERSION = 0
+
+# -------------------------------
+# Synchronisation multi-instances (Redis Pub/Sub)
+# -------------------------------
+FACE_SYNC_CHANNEL = "face:emb:sync:v1"
+_INSTANCE_ID = uuid.uuid4().hex
+_SYNC_REDIS = None
 
 
 # -------------------------------
 # Utilitaires
 # -------------------------------
 def _to_array(emb):
-    """Convertit list / bytes / ndarray en ndarray float32."""
     if isinstance(emb, bytes):
         return np.frombuffer(emb, dtype=np.float32)
     return np.asarray(emb, dtype=np.float32)
@@ -54,7 +59,6 @@ def _normalize_embedding(emb):
 
 
 def image_quality_check(img):
-    """Vérifie luminosité et netteté (img attendu en RGB)."""
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     if np.mean(gray) < 60:
@@ -66,6 +70,94 @@ def image_quality_check(img):
         return False
 
     return True
+
+
+# ============================================================
+# Pub/Sub : diffusion des changements aux autres instances
+# ============================================================
+def _publish(op, idpers=None, vec=None, meta=None):
+    if _SYNC_REDIS is None:
+        return
+    payload = {"src": _INSTANCE_ID, "op": op}
+    if idpers is not None:
+        payload["idpers"] = int(idpers)
+    if vec is not None:
+        payload["emb"] = base64.b64encode(
+            np.asarray(vec, dtype=np.float32).tobytes()
+        ).decode()
+    if meta:
+        payload["meta"] = meta
+    try:
+        _SYNC_REDIS.publish(FACE_SYNC_CHANNEL, json.dumps(payload))
+    except Exception as e:
+        print(f"[face_utils] Publication sync impossible : {e}")
+
+
+def _handle_sync_message(app, raw):
+    try:
+        msg = json.loads(raw)
+    except Exception:
+        return
+
+    if msg.get("src") == _INSTANCE_ID:
+        return  # notre propre message
+
+    op = msg.get("op")
+    idpers = msg.get("idpers")
+    vec = (
+        np.frombuffer(base64.b64decode(msg["emb"]), dtype=np.float32).copy()
+        if "emb" in msg else None
+    )
+
+    if op == "update" and idpers is not None and vec is not None:
+        with _lock:
+            row = _ROW_OF.get(int(idpers))
+            if row is not None:
+                _MATRIX[row] = vec
+
+    elif op == "upsert" and idpers is not None and vec is not None:
+        upsert_embedding(idpers, vec, meta=msg.get("meta"), _broadcast=False)
+
+    elif op == "remove" and idpers is not None:
+        remove_embedding(idpers, _broadcast=False)
+
+    elif op == "reload":
+        with app.app_context():
+            load_embeddings()
+            db.session.remove()
+
+
+def init_face_sync(app):
+    """
+    Démarre l'écoute Redis Pub/Sub (greenlet eventlet) : chaque instance
+    applique les mises à jour d'embeddings faites par les autres.
+    """
+    global _SYNC_REDIS
+
+    if os.getenv("FACE_SYNC_ENABLED", "1") in ("0", "false", "False"):
+        print("[face_utils] Synchronisation multi-instances désactivée")
+        return
+
+    redis_client = app.extensions.get("redis")
+    if redis_client is None:
+        return
+
+    _SYNC_REDIS = redis_client
+
+    def _listen():
+        while True:
+            try:
+                pubsub = redis_client.pubsub(ignore_subscribe_messages=True)
+                pubsub.subscribe(FACE_SYNC_CHANNEL)
+                print(f"[face_utils] Sync embeddings active (instance {_INSTANCE_ID[:8]})")
+                for message in pubsub.listen():
+                    if message and message.get("type") == "message":
+                        _handle_sync_message(app, message["data"])
+            except Exception as e:
+                print(f"[face_utils] Sync interrompue, reconnexion : {e}")
+                eventlet.sleep(2)
+
+    eventlet.spawn_n(_listen)
 
 
 # -------------------------------
@@ -104,6 +196,12 @@ def load_embeddings():
     print(f"[face_utils] {len(ids)} embeddings chargés (matrice {matrix.shape}).")
 
 
+def reload_all_instances():
+    """Recharge localement puis demande aux autres instances de recharger."""
+    load_embeddings()
+    _publish("reload")
+
+
 def preload_embeddings_threadsafe():
     try:
         load_embeddings()
@@ -112,7 +210,6 @@ def preload_embeddings_threadsafe():
 
 
 def invalidate_service_cache(idserv=None):
-    """À appeler quand un personnel change de division / est créé / supprimé."""
     with _lock:
         if idserv is None:
             _SERVICE_ROWS.clear()
@@ -124,19 +221,11 @@ def invalidate_service_cache(idserv=None):
 # Résolution des lignes autorisées
 # -------------------------------
 def _rows_for_ids(allowed_idpers):
-    """Traduit une liste d'idpers en indices de lignes de la matrice."""
     rows = [_ROW_OF[int(i)] for i in allowed_idpers if int(i) in _ROW_OF]
     return np.asarray(rows, dtype=np.int64)
 
 
 def get_service_rows(idserv, id_provider):
-    """
-    Retourne les indices de lignes du service, avec cache TTL.
-
-    id_provider : callable sans argument renvoyant la liste des idpers du service
-                  (appelée seulement en cas de cache miss → 0 requête SQL sur
-                  la très grande majorité des pointages).
-    """
     now = time.time()
     with _lock:
         cached = _SERVICE_ROWS.get(idserv)
@@ -165,18 +254,12 @@ def euclidean_distance(a, b):
 
 
 def _combined_from_cosine(c):
-    """
-    Équivalent vectorisé de combined_score pour des embeddings L2-normalisés :
-    ||a-b|| = sqrt(2 - 2*cos) → aucun second passage nécessaire.
-    Monotone croissante en cos, donc l'argmax du cosinus EST l'argmax du score.
-    """
     c = np.clip(c, -1.0, 1.0)
     d = np.sqrt(np.maximum(0.0, 2.0 - 2.0 * c))
     return 0.8 * c + 0.2 * (1.0 - d / 2.0)
 
 
 def combined_score(a, b):
-    """Conservée pour compatibilité avec l'ancien code appelant."""
     return float(_combined_from_cosine(np.dot(a, b)))
 
 
@@ -184,7 +267,6 @@ def combined_score(a, b):
 # Extraction embedding
 # -------------------------------
 def _detect_single_face(img_bgr, max_side=1280):
-    """Détecte exactement un visage et renvoie son embedding normalisé."""
     h, w = img_bgr.shape[:2]
     if max(h, w) > max_side:
         scale = max_side / max(h, w)
@@ -204,7 +286,6 @@ def _detect_single_face(img_bgr, max_side=1280):
 
 
 def get_embeddings(image_path):
-    """Retourne la liste des embeddings normalisés d'une image ([] si aucun visage)."""
     img = cv2.imread(image_path)
     if img is None:
         print(f"[face_utils] Erreur: impossible de lire l'image {image_path}")
@@ -222,7 +303,7 @@ def get_embeddings(image_path):
 
 
 # -------------------------------
-# Vérification du visage (vectorisée + restreinte au service)
+# Vérification du visage
 # -------------------------------
 def verifier_face(image_path=None,
                   image=None,
@@ -233,21 +314,8 @@ def verifier_face(image_path=None,
                   allowed_idpers=None,
                   allowed_rows=None,
                   solo_threshold=None):
-    """
-    Vérification restreinte aux personnels du service (via allowed_rows/allowed_idpers).
-
-    - image_path / image / emb : trois entrées possibles (emb évite toute
-      redétection si l'embedding a déjà été calculé à l'étape anti-spoof).
-    - allowed_rows : ndarray d'indices déjà résolus (chemin rapide, cf.
-      get_service_rows). Prioritaire sur allowed_idpers.
-    - solo_threshold : seuil renforcé quand le service ne contient qu'une seule
-      personne (le contrôle top-2 est alors inopérant). Défaut : threshold + 0.05.
-
-    Retour : (role, idpers, emb, best_score, second_score) ou (None,)*5
-    """
     NO_MATCH = (None, None, None, None, None)
 
-    # ---- Embedding de la requête ----
     if emb is None:
         if image is None:
             if image_path is None:
@@ -259,7 +327,6 @@ def verifier_face(image_path=None,
     else:
         emb = _normalize_embedding(emb)
 
-    # ---- Sélection des candidats ----
     with _lock:
         matrix = _MATRIX
         ids = _IDS
@@ -267,8 +334,6 @@ def verifier_face(image_path=None,
             allowed_rows = _rows_for_ids(allowed_idpers)
 
     if allowed_rows is not None:
-        # garde-fou : des rows mis en cache avant une suppression pourraient
-        # dépasser la taille courante de la matrice
         if allowed_rows.size and allowed_rows.max() >= matrix.shape[0]:
             allowed_rows = allowed_rows[allowed_rows < matrix.shape[0]]
         if allowed_rows.size == 0:
@@ -283,11 +348,9 @@ def verifier_face(image_path=None,
     if n == 0:
         return NO_MATCH
 
-    # ---- Un seul produit matriciel (BLAS) au lieu de N itérations Python ----
     cos = sub_matrix @ emb
 
     if n == 1:
-        best_idx = 0
         best_score = float(_combined_from_cosine(cos[0]))
         second_score = -1.0
 
@@ -296,7 +359,6 @@ def verifier_face(image_path=None,
             return NO_MATCH
         return "personnel", int(sub_ids[0]), emb, best_score, second_score
 
-    # top-2 en O(n) via argpartition
     idx = np.argpartition(cos, -2)[-2:]
     idx = idx[np.argsort(cos[idx])[::-1]]
     best_idx, second_idx = int(idx[0]), int(idx[1])
@@ -314,7 +376,6 @@ def verifier_face(image_path=None,
 
 
 def find_best_match(emb, allowed_rows=None):
-    """Recherche vectorisée simple (cosinus), sans contrôle de seuil."""
     with _lock:
         matrix, ids = _MATRIX, _IDS
 
@@ -335,7 +396,7 @@ def find_best_match(emb, allowed_rows=None):
 
 
 # -------------------------------
-# Apprentissage incrémental (mise à jour in-place de la matrice)
+# Apprentissage incrémental (+ diffusion aux autres instances)
 # -------------------------------
 def update_personnel_embedding(idpers, new_embedding, score,
                                second_score,
@@ -366,9 +427,6 @@ def update_personnel_embedding(idpers, new_embedding, score,
 
             updated = (1 - alpha) * _MATRIX[row] + alpha * new_emb
             updated = _normalize_embedding(updated)
-
-            # écriture in-place : pas de reconstruction de matrice,
-            # les caches de lignes par service restent valides
             _MATRIX[row] = updated
 
         personnel = Personnels.query.get(idpers)
@@ -376,6 +434,7 @@ def update_personnel_embedding(idpers, new_embedding, score,
             personnel.set_embedding(updated)
             db.session.commit()
 
+        _publish("update", idpers=idpers, vec=updated)
         print(f"[face_utils] Apprentissage OK pour ID {idpers}")
 
     except Exception as e:
@@ -384,10 +443,9 @@ def update_personnel_embedding(idpers, new_embedding, score,
 
 
 # ============================================================
-# Ajout / suppression unitaire (création ou suppression d'un personnel)
+# Ajout / suppression unitaire (+ diffusion)
 # ============================================================
-def upsert_embedding(idpers, emb, meta=None):
-    """Ajoute ou remplace l'embedding d'un personnel sans recharger toute la base."""
+def upsert_embedding(idpers, emb, meta=None, _broadcast=True):
     global _MATRIX, _IDS, _VERSION
 
     idpers = int(idpers)
@@ -406,18 +464,19 @@ def upsert_embedding(idpers, emb, meta=None):
                 )
             _IDS = np.append(_IDS, np.int64(idpers))
             _ROW_OF[idpers] = _MATRIX.shape[0] - 1
-            # nouvelle personne -> les listes de lignes par service sont obsolètes
             _VERSION += 1
             _SERVICE_ROWS.clear()
 
         if meta:
             PERSONNELS_META[idpers] = meta
 
+    if _broadcast:
+        _publish("upsert", idpers=idpers, vec=vec, meta=meta)
+
     return True
 
 
-def remove_embedding(idpers):
-    """Retire un personnel du cache. Retourne False s'il n'y était pas."""
+def remove_embedding(idpers, _broadcast=True):
     global _MATRIX, _IDS, _ROW_OF, _VERSION
 
     idpers = int(idpers)
@@ -429,27 +488,19 @@ def remove_embedding(idpers):
 
         _MATRIX = np.ascontiguousarray(np.delete(_MATRIX, row, axis=0))
         _IDS = np.delete(_IDS, row)
-        # les indices des lignes suivantes ont glissé -> réindexation complète
         _ROW_OF = {int(pid): i for i, pid in enumerate(_IDS)}
         PERSONNELS_META.pop(idpers, None)
         _VERSION += 1
         _SERVICE_ROWS.clear()
 
+    if _broadcast:
+        _publish("remove", idpers=idpers)
+
     return True
 
 
 # ============================================================
-# Compatibilité ascendante
-#
-# Les modules existants (personnels_api, __init__, ...) importent encore
-# PERSONNELS_EMB et emb_lock. Le proxy ci-dessous se comporte comme l'ancien
-# dict {idpers: embedding} mais lit/écrit directement dans la matrice.
-#
-# Bonus : il corrige un bug latent de l'ancienne version. load_embeddings()
-# réaffectait la globale PERSONNELS_EMB = {} ; tout module ayant fait
-# "from utils.face_utils import PERSONNELS_EMB" gardait une référence vers
-# l'ANCIEN dict et ne voyait donc jamais les rechargements. Le proxy, lui,
-# est une vue vivante : la référence importée reste toujours valide.
+# Compatibilité ascendante (PERSONNELS_EMB / emb_lock)
 # ============================================================
 from collections.abc import MutableMapping  # noqa: E402
 
@@ -485,7 +536,6 @@ class _EmbeddingsProxy(MutableMapping):
         with _lock:
             return len(_ROW_OF)
 
-    # Snapshots (listes, pas des vues) : itération sûre hors du verrou
     def keys(self):
         with _lock:
             return list(_ROW_OF.keys())
@@ -515,14 +565,6 @@ emb_lock = _lock
 
 
 def check_duplicate_face(emb, exclude_idpers=None, threshold=0.48):
-    """
-    Cherche si un visage est déjà enregistré (création / modification d'un personnel).
-
-    Comparaison globale (tous services confondus) : un même agent ne doit pas
-    pouvoir être inscrit deux fois, même dans deux services différents.
-
-    Retour : (idpers_du_doublon | None, meilleur_score)
-    """
     with _lock:
         matrix, ids = _MATRIX, _IDS
 
