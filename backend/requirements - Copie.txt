@@ -35,4 +35,3 @@ pytesseract
 inference-sdk
 redis 
 flask-caching
-celery

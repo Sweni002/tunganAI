@@ -2282,6 +2282,65 @@ def facial_client_step2_antispoof():
 
 
 # ============================================================
+# Dispatch Celery (repli eventlet si le broker est indisponible)
+# ============================================================
+from sqlalchemy.exc import IntegrityError
+from tasks import pointage_tasks as ptasks
+from utils import face_utils
+from utils.pointage_context import (
+    find_autorisation,
+    get_personnel_context,
+    parse_horaires,
+)
+from utils.pointage_redis import extend_image, pop_reco, store_reco
+
+_CELERY_DOWN_UNTIL = 0.0
+CELERY_RETRY_AFTER = 30  # s : on ne retente pas le broker pendant 30 s après un échec
+
+
+def _dispatch(task, fallback, *args):
+    """
+    Envoie la tâche à Celery. Si le broker ne répond pas, exécute la même
+    fonction dans une greenlet locale (comportement d'avant Celery).
+    """
+    global _CELERY_DOWN_UNTIL
+    from time import time as _now
+
+    if _now() >= _CELERY_DOWN_UNTIL:
+        try:
+            task.apply_async(args=args, retry=False)
+            return
+        except Exception as exc:
+            _CELERY_DOWN_UNTIL = _now() + CELERY_RETRY_AFTER
+            logger.warning("[Celery] Broker indisponible, repli local : %s", exc)
+
+    run_in_background(fallback, *args)
+
+
+def _get_or_create_pointage(idpers, jour):
+    """
+    Pointage du jour, créé si absent (flush seulement : un seul commit par requête).
+    Renvoie (pointage, cree).
+    """
+    pointage = Pointage.query.filter_by(idpers=idpers, date=jour).first()
+    if pointage:
+        return pointage, False
+
+    pointage = Pointage(idpers=idpers, date=jour, retard_total_minutes=0)
+    db.session.add(pointage)
+    try:
+        db.session.flush()
+        return pointage, True
+    except IntegrityError:
+        # Créé au même moment par la tâche "pointages vides" (contrainte UNIQUE idpers+date)
+        db.session.rollback()
+        return Pointage.query.filter_by(idpers=idpers, date=jour).first(), False
+
+
+# ============================================================
+# ÉTAPE 3 : reconnaissance (service lu dans le jeton, matching vectorisé)
+# ============================================================
+# ============================================================
 # ÉTAPE 3 : reconnaissance (service lu dans le jeton, matching vectorisé)
 # ============================================================
 @bp.route("/facial_client/step3-recognition", methods=["POST"])
@@ -2302,7 +2361,7 @@ def facial_client_step3_recognition():
         return jsonify({"error": "Image introuvable ou expirée, veuillez recommencer"}), 400
     elapsed_validate = (perf_counter() - t_validate) * 1000
 
-    # ---- Poste : uniquement le jeton du jour (aucune requête en base) ----
+    # ---- Poste : jeton du jour + revalidation MAC ----
     t_mac = perf_counter()
     payload = _read_poste_token(poste_token, mac_address) if poste_token else None
     if not payload:
@@ -2311,6 +2370,19 @@ def facial_client_step3_recognition():
             "error": "Session du poste expirée, veuillez réessayer.",
             "code": "poste_token_invalid",
         }), 401
+
+    # ✅ AJOUT — La MAC doit toujours être autorisée aujourd'hui.
+    # Cache Redis HIT dans le cas normal (déjà rempli par step1 ce matin) → coût négligeable.
+    # Cache MISS uniquement après action admin (ajout/retrait MAC) ou 1er appel de la journée.
+    # Couvre le cas où la MAC est retirée en cours de journée alors que le navigateur
+    # détient encore un jeton signé valable jusqu'à minuit.
+    if not get_service_info_for_today(mac_address):
+        delete_image(temp_id)
+        return jsonify({
+            "error": "Ce poste n'est plus autorisé à effectuer un pointage.",
+            "code": "poste_revoked",
+        }), 401
+
     idserv = payload["idserv"]
     service_nom = payload.get("service_nom", "")
     elapsed_mac = (perf_counter() - t_mac) * 1000
@@ -2358,14 +2430,12 @@ def facial_client_step3_recognition():
     t_match = perf_counter()
     try:
         if entry and entry.get("emb") is not None:
-            # Produit matriciel : ~1 ms, pas besoin de thread
             role, id_value, emb, score_face, second_score = verifier_face(
                 emb=entry["emb"],
                 threshold=0.48, min_gap=0.10, top2_check=True,
                 allowed_rows=allowed_rows,
             )
         else:
-            # Secours : recalcul de l'embedding depuis l'image (Redis) dans un vrai thread
             img_bytes = get_image(temp_id)
             image_array = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
             with eventlet.Timeout(CPU_TIMEOUT):
@@ -2397,13 +2467,25 @@ def facial_client_step3_recognition():
             second_score=second_score,
         )
 
+    # ---- Résultat conservé côté serveur : step4 ne fait plus confiance au client ----
+    t_store = perf_counter()
+    store_reco(temp_id, {
+        "role": role,
+        "id_value": int(id_value),
+        "emb": emb,
+        "score_face": float(score_face),
+        "second_score": float(second_score) if second_score is not None else -1.0,
+        "mac": mac_address,
+        "idserv": idserv,
+    })
+    extend_image(temp_id)  # l'image sert encore au journal (écrit par Celery)
+    elapsed_store = (perf_counter() - t_store) * 1000
+
     total = (perf_counter() - start_global) * 1000
 
-    # L'image reste dans Redis : step4 l'utilise pour le journal.
     return jsonify({
         "role": role,
         "id_value": id_value,
-        "emb": emb.tolist() if emb is not None else None,
         "score_face": float(score_face),
         "second_score": float(second_score) if second_score is not None else -1,
         "temp_id": temp_id,
@@ -2411,13 +2493,17 @@ def facial_client_step3_recognition():
             **base_times,
             "pop_ms": round(elapsed_pop, 3),
             "match_ms": round(elapsed_match, 3),
+            "store_ms": round(elapsed_store, 3),
             "total_ms": round(total, 3),
         },
     }), 200
-
+    
 
 # ============================================================
 # Contexte commun à l'étape 4 (entrée / sortie)
+# - identité lue dans Redis (déposée par step3, usage unique)
+# - personnel/horaires/client lus dans le cache Redis
+# - journal, notification, apprentissage : Celery
 # ============================================================
 class _Step4:
     def __init__(self, type_str):
@@ -2426,22 +2512,23 @@ class _Step4:
         self.data = request.get_json(silent=True) or {}
         self.now = datetime.now()
 
-        d = self.data
-        self.role = d.get("role")
-        self.id_value = d.get("id_value")
-        self.emb_list = d.get("emb")
-        self.score_face = d.get("score_face")
-        self.second_score = d.get("second_score")
-        self.descriptor_list = d.get("face_descriptor")
-        self.mac_address = d.get("mac_address")
-        self.temp_id = d.get("temp_id")
-
         self.type_str = type_str
         self.type_pointage = TypePointage(type_str)
         self.heure_str = self.now.strftime("%Hh:%M")
-        self.image_bytes = get_image(self.temp_id)
+
+        self.temp_id = self.data.get("temp_id")
+        self.mac_address = self.data.get("mac_address")
+        self.descriptor_list = self.data.get("face_descriptor")
+
+        self.role = None
+        self.id_value = None
+        self.emb = None
+        self.score_face = None
+        self.second_score = None
+        self.created = False   # ligne "pointage du jour" créée dans cette requête
         self._locked = False
 
+    # ---------- mesures ----------
     def tick(self, name, t0):
         self.times[name] = round((perf_counter() - t0) * 1000, 3)
 
@@ -2449,39 +2536,61 @@ class _Step4:
         self.times["total_ms"] = round((perf_counter() - self.start) * 1000, 3)
         return self.times["total_ms"]
 
-    def log(self, statut, message):
+    # ---------- identité (step3 -> Redis -> step4) ----------
+    def load_reco(self):
+        t0 = perf_counter()
+        if not self.temp_id or not TEMP_ID_RE.match(str(self.temp_id)):
+            return False
+        reco = pop_reco(self.temp_id)  # lecture + suppression atomiques (anti-rejeu)
+        self.tick("reco_ms", t0)
+        if not reco:
+            return False
+
+        self.role = reco.get("role")
+        self.id_value = int(reco["id_value"])
+        self.emb = reco.get("emb")
+        self.score_face = reco.get("score_face")
+        self.second_score = reco.get("second_score")
+        self.mac_address = reco.get("mac") or self.mac_address
+        return True
+
+    # ---------- Celery ----------
+    def dispatch(self, task, fallback, *args):
+        _dispatch(task, fallback, *args)
+
+    def _log_payload(self, statut, message):
         total = self.total()
-        _log_async(
-            etape=EtapePointage.ENREGISTREMENT,
-            statut=statut,
-            message=message,
-            image_bytes=self.image_bytes,
-            mac_address=self.mac_address,
-            type_pointage=self.type_pointage,
-            temps_ms=total,
-            temps_detail=dict(self.times),
-            idpers=self.id_value,
-            role=self.role,
-            score_face=self.score_face,
-            second_score=self.second_score,
+        return {
+            "etape": EtapePointage.ENREGISTREMENT.value,
+            "statut": statut.value,
+            "message": message,
+            "idpers": self.id_value,
+            "role": self.role,
+            "score_face": self.score_face,
+            "second_score": self.second_score,
+            "mac_address": self.mac_address,
+            "type_pointage": self.type_pointage.value,
+            "temps_ms": total,
+            "temps_detail": dict(self.times),
+        }
+
+    def learn(self):
+        """Apprentissage : matrice locale mise à jour tout de suite (µs), écriture DB par Celery."""
+        t0 = perf_counter()
+        if self.emb is None:
+            return
+        updated = face_utils.blend_embedding_local(
+            self.id_value, self.emb, self.score_face, self.second_score,
+            alpha=0.15, min_score_update=0.65, min_gap=0.15,
         )
+        if updated is not None:
+            self.dispatch(
+                ptasks.persister_embedding_task, ptasks.do_persister_embedding,
+                self.id_value, [float(x) for x in updated],
+            )
+        self.tick("learn_ms", t0)
 
-    def error(self, message, status):
-        self.log(StatutPointage.ERREUR, message)
-        delete_image(self.temp_id)
-        return jsonify({"error": message, "performance": dict(self.times)}), status
-
-    def already(self, periode, heure_deja, message):
-        """Déjà pointé (vu en base) : on alimente le cache pour la prochaine fois."""
-        mark_done(self.id_value, self.type_str, periode, heure_deja)
-        return self.error(message, 400)
-
-    def start_embedding_update(self):
-        run_in_background(
-            _task_update_embedding,
-            self.id_value, self.emb_list, self.score_face, self.second_score,
-        )
-
+    # ---------- verrou ----------
     def acquire(self):
         self._locked = acquire_lock(self.id_value, self.type_str)
         return self._locked
@@ -2491,26 +2600,69 @@ class _Step4:
             release_lock(self.id_value, self.type_str)
             self._locked = False
 
-    def success(self, pointage, personnel, periode, notif_description, message, payload):
+    # ---------- réponses ----------
+    def error(self, message, status):
+        # Conserver la ligne "pointage du jour" créée juste avant le refus
+        if self.created:
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            self.created = False
+
+        log = self._log_payload(StatutPointage.ERREUR, message)
+        self.dispatch(ptasks.journaliser_task, ptasks.do_journaliser, log, self.temp_id)
+        return jsonify({"error": message, "performance": dict(self.times)}), status
+
+    def already(self, periode, heure_deja, message):
+        mark_done(self.id_value, self.type_str, periode, heure_deja)
+        return self.error(message, 400)
+
+    def commit(self, pointage):
+        """Un seul aller-retour DB : flush → to_dict → commit (pas de SELECT après commit)."""
+        t0 = perf_counter()
+        db.session.flush()
+        snapshot = {
+            "id": pointage.id,
+            "date_iso": pointage.date.isoformat(),
+            "dict": pointage.to_dict(),
+        }
+        db.session.commit()
+        self.created = False
+        self.tick("save_ms", t0)
+        return snapshot
+
+    def success(self, snapshot, periode, notif_description, message, payload):
         mark_done(self.id_value, self.type_str, periode, self.heure_str)
 
-        run_in_background(
-            _task_notify,
-            pointage.id, personnel.idpers, notif_description, pointage.date.isoformat(),
+        log = self._log_payload(StatutPointage.SUCCES, message)
+        self.dispatch(
+            ptasks.apres_pointage_task, ptasks.do_apres_pointage,
+            {
+                "idpointage": snapshot["id"],
+                "idpers": self.id_value,
+                "description": notif_description,
+                "date_iso": snapshot["date_iso"],
+                "descriptor": self.descriptor_list,
+                "temp_id": self.temp_id,
+                "log": log,
+            },
         )
-        if self.descriptor_list:
-            run_in_background(_task_update_descriptor, self.id_value, self.descriptor_list)
-
-        self.log(StatutPointage.SUCCES, message)
-        delete_image(self.temp_id)
 
         self.total()
+        payload["pointage"] = snapshot["dict"]
         payload["performance"] = dict(self.times)
         return jsonify(payload), 200
 
 
-  
- #========================================================
+def _reco_invalide():
+    return jsonify({
+        "error": "Reconnaissance expirée ou déjà utilisée, veuillez recommencer.",
+        "code": "reco_invalide",
+    }), 400
+
+
+# ============================================================
 # ÉTAPE 4 : ENREGISTREMENT ENTRÉE
 # ============================================================
 @bp.route("/facial_client/step4-enregistrer", methods=["POST"])
@@ -2520,10 +2672,8 @@ def facial_client_step4_enregistrer():
 
     ctx = _Step4("entree")
 
-    if not ctx.data:
-        return jsonify({"error": "Corps de requête JSON requis"}), 400
-    if not ctx.role or ctx.id_value is None:
-        return jsonify({"error": "Données de reconnaissance manquantes"}), 400
+    if not ctx.load_reco():
+        return _reco_invalide()
     if ctx.role != "personnel":
         return ctx.error("Rôle non autorisé", 403)
 
@@ -2533,38 +2683,33 @@ def facial_client_step4_enregistrer():
     id_value = ctx.id_value
 
     try:
-        # Apprentissage en tâche de fond (diffusé aux autres instances)
-        ctx.start_embedding_update()
+        ctx.learn()
 
-        # ---- Personnel + horaires ----
+        # ---- Personnel + horaires + client (cache Redis) ----
         t0 = perf_counter()
-        personnel = Personnels.query.get(id_value)
-        if not personnel:
+        pc = get_personnel_context(id_value)
+        if not pc:
             return ctx.error("Personnel introuvable", 404)
-
-        service = personnel.division.service
-        horaires = service.horaire
+        horaires = parse_horaires(pc.get("horaires"))
         if not horaires:
             return ctx.error("Horaires non configurés pour ce service", 500)
-        ctx.tick("db_personnel_ms", t0)
+        ctx.tick("ctx_ms", t0)
 
-        # ---- Pointages vides : une seule fois par jour et par service ----
-        t0 = perf_counter()
-        if once_per_day("pointages_vides", service.idserv):
-            try:
-                creer_pointages_vides_par_service(id_value)
-            except Exception:
-                reset_once_per_day("pointages_vides", service.idserv)
-                raise
-        ctx.tick("pointages_vides_ms", t0)
+        # ---- Pointages vides : Celery (plus bloquant) ----
+        idserv = pc.get("idserv")
+        if idserv and once_per_day("pointages_vides", idserv):
+            ctx.dispatch(
+                ptasks.creer_pointages_vides_task, ptasks.do_creer_pointages_vides_service,
+                idserv, today.isoformat(),
+            )
 
         # ---- Période ----
-        is_surface = personnel.role == "surface"
+        is_surface = pc["role"] == "surface"
         if is_surface:
             periode = "unique"
-        elif to_time(horaires.entree_matin_debut) <= heure <= to_time(horaires.sortie_matin_fin):
+        elif horaires["entree_matin_debut"] <= heure <= horaires["sortie_matin_fin"]:
             periode = "matin"
-        elif to_time(horaires.entree_soir_debut) <= heure < to_time(horaires.sortie_soir_debut):
+        elif horaires["entree_soir_debut"] <= heure < horaires["sortie_soir_debut"]:
             periode = "soir"
         else:
             return ctx.error("Heure non valide pour pointer.", 400)
@@ -2580,14 +2725,14 @@ def facial_client_step4_enregistrer():
 
         # ---- Pointage du jour ----
         t0 = perf_counter()
-        pointage = Pointage.query.filter_by(idpers=id_value, date=today).first()
-        client = Client.query.filter_by(idpers=id_value).first()
-
-        if not pointage:
-            pointage = Pointage(idpers=id_value, date=today, retard_total_minutes=0)
-            db.session.add(pointage)
-            db.session.commit()
+        pointage, ctx.created = _get_or_create_pointage(id_value, today)
         ctx.tick("db_pointage_ms", t0)
+
+        base_payload = {
+            "personnel": pc["personnel"],
+            "client": pc.get("client"),
+            "heure_de_pointage": ctx.heure_str,
+        }
 
         # ================= AGENT DE SURFACE =================
         if is_surface:
@@ -2598,7 +2743,6 @@ def facial_client_step4_enregistrer():
                 ancienne = pointage.heure_entree_unique.strftime("%Hh:%M")
                 return ctx.already("unique", ancienne, f"Déjà pointé aujourd'hui à {ancienne}")
 
-            t0 = perf_counter()
             pointage.heure_entree_unique = now
             pointage.retard_matin = False
             pointage.retard_soir = False
@@ -2608,26 +2752,22 @@ def facial_client_step4_enregistrer():
             pointage.absence = False
             pointage.absence_unique = False
             pointage.presence = True
-            db.session.commit()
-            ctx.tick("save_ms", t0)
 
+            snapshot = ctx.commit(pointage)
+            description = f"Pointage surface enregistré pour {pc['matricule']}"
             return ctx.success(
-                pointage, personnel, "unique",
-                notif_description=f"Pointage surface enregistré pour {personnel.matricule}",
-                message=f"Pointage surface enregistré pour {personnel.matricule}",
+                snapshot, "unique",
+                notif_description=description,
+                message=description,
                 payload={
-                    "message": f"Pointage d'agent surface enregistré pour {personnel.matricule}",
+                    **base_payload,
+                    "message": f"Pointage d'agent surface enregistré pour {pc['matricule']}",
                     "speech": "Pointage d'agent surface enregistré avec succès",
-                    "personnel": personnel.to_dict(),
-                    "client": client.to_dict() if client else None,
-                    "heure_de_pointage": ctx.heure_str,
-                    "pointage": pointage.to_dict(),
                 },
             )
 
         # ================= PERSONNEL STANDARD =================
         retard_minutes = 0
-        t0 = perf_counter()
 
         if periode == "matin":
             if pointage.absence_matin:
@@ -2638,10 +2778,10 @@ def facial_client_step4_enregistrer():
                 return ctx.already("matin", ancienne, f"Déjà pointé le matin à {ancienne}")
 
             pointage.heure_entree_matin = now
-            heure_limite_matin = to_time(horaires.entree_matin_fin)
+            heure_limite_matin = horaires["entree_matin_fin"]
 
             if heure > heure_limite_matin:
-                if a_autorisation_retard(id_value, today, PeriodeAutorisation.matin):
+                if find_autorisation(id_value, "retard", "matin"):
                     retard_minutes = 0
                     pointage.retard_matin = False
                 else:
@@ -2659,14 +2799,15 @@ def facial_client_step4_enregistrer():
             pointage.presence = True
 
         else:  # soir
-            # Marquage des absents du matin : une seule fois par jour
+            # Absents du matin (tous les employés) : Celery, une fois par jour
             if once_per_day("absents_matin"):
-                try:
-                    marquer_absents_matin_non_pointes()
-                    db.session.refresh(pointage)
-                except Exception:
-                    reset_once_per_day("absents_matin")
-                    raise
+                ctx.dispatch(
+                    ptasks.marquer_absents_matin_task, ptasks.do_marquer_absents_matin,
+                    today.isoformat(),
+                )
+            # Même règle appliquée tout de suite à la ligne courante
+            if pointage.heure_entree_matin is None and not pointage.absence_matin:
+                pointage.absence_matin = True
 
             if pointage.absence_soir:
                 return ctx.error("Déjà marqué absent l'après-midi.", 400)
@@ -2676,14 +2817,14 @@ def facial_client_step4_enregistrer():
                 return ctx.already("soir", ancienne, f"Déjà pointé l'après-midi à {ancienne}")
 
             pointage.heure_entree_soir = now
-            seuil_retard = to_time(horaires.entree_soir_fin)
+            seuil_retard = horaires["entree_soir_fin"]
             delta_minutes = max(0, int(
                 (datetime.combine(today, heure)
                  - datetime.combine(today, seuil_retard)).total_seconds() / 60
             ))
 
             if delta_minutes > 0:
-                if a_autorisation_retard(id_value, today, PeriodeAutorisation.apres_midi):
+                if find_autorisation(id_value, "retard", "apres_midi"):
                     pointage.retard_soir = False
                     pointage.retard_soir_minutes = 0
                 else:
@@ -2698,38 +2839,30 @@ def facial_client_step4_enregistrer():
             pointage.absence_soir = False
             pointage.presence = True
 
-        pointage.absence = pointage.absence_matin and pointage.absence_soir
-        db.session.commit()
-        ctx.tick("save_ms", t0)
+        pointage.absence = bool(pointage.absence_matin and pointage.absence_soir)
+        snapshot = ctx.commit(pointage)
 
         if retard_minutes > 0:
-            message = f"Pointage enregistré avec succès pour {personnel.matricule} avec {retard_minutes} minutes de retard"
+            message = f"Pointage enregistré avec succès pour {pc['matricule']} avec {retard_minutes} minutes de retard"
             speech_msg = f"Pointage enregistré avec {retard_minutes} minutes de retard"
         else:
-            message = f"Pointage enregistré avec succès pour {personnel.matricule}"
+            message = f"Pointage enregistré avec succès pour {pc['matricule']}"
             speech_msg = "Pointage enregistré avec succès"
 
         return ctx.success(
-            pointage, personnel, periode,
-            notif_description=f"Pointage enregistré pour {personnel.matricule}",
+            snapshot, periode,
+            notif_description=f"Pointage enregistré pour {pc['matricule']}",
             message=message,
-            payload={
-                "message": message,
-                "speech": speech_msg,
-                "personnel": personnel.to_dict(),
-                "client": client.to_dict() if client else None,
-                "heure_de_pointage": ctx.heure_str,
-                "pointage": pointage.to_dict(),
-            },
+            payload={**base_payload, "message": message, "speech": speech_msg},
         )
 
     except Exception as e:
         db.session.rollback()
+        ctx.created = False
         return ctx.error(str(e), 500)
 
     finally:
         ctx.release()
-
 
 
 # ============================================================
@@ -2742,10 +2875,8 @@ def facial_client_sortie_step4_enregistrer():
 
     ctx = _Step4("sortie")
 
-    if not ctx.data:
-        return jsonify({"error": "Corps de requête JSON requis"}), 400
-    if not ctx.role or ctx.id_value is None:
-        return jsonify({"error": "Données de reconnaissance manquantes"}), 400
+    if not ctx.load_reco():
+        return _reco_invalide()
     if ctx.role != "personnel":
         return ctx.error("Rôle non autorisé", 403)
 
@@ -2755,39 +2886,34 @@ def facial_client_sortie_step4_enregistrer():
     id_value = ctx.id_value
 
     try:
-        ctx.start_embedding_update()
+        ctx.learn()
 
-        # ---- Personnel + horaires ----
+        # ---- Personnel + horaires + client (cache Redis) ----
         t0 = perf_counter()
-        personnel = Personnels.query.get(id_value)
-        if not personnel:
+        pc = get_personnel_context(id_value)
+        if not pc:
             return ctx.error("Personnel introuvable", 404)
-
-        horaires = personnel.division.service.horaire
+        horaires = parse_horaires(pc.get("horaires"))
         if not horaires:
             return ctx.error("Horaires non configurés pour ce service", 500)
-        ctx.tick("db_personnel_ms", t0)
+        ctx.tick("ctx_ms", t0)
 
         # ---- Période de sortie ----
-        is_surface = personnel.role == "surface"
+        is_surface = pc["role"] == "surface"
         via_autorisation = False
 
         if is_surface:
             periode = "unique"
-        elif to_time(horaires.sortie_matin_debut) <= heure <= to_time(horaires.sortie_matin_fin):
+        elif horaires["sortie_matin_debut"] <= heure <= horaires["sortie_matin_fin"]:
             periode = "matin"
-        elif to_time(horaires.sortie_soir_debut) <= heure <= to_time(horaires.sortie_soir_fin):
+        elif horaires["sortie_soir_debut"] <= heure <= horaires["sortie_soir_fin"]:
             periode = "soir"
         else:
-            periode_actuelle = (
-                PeriodeAutorisation.matin
-                if heure < to_time(horaires.entree_soir_debut)
-                else PeriodeAutorisation.apres_midi
-            )
-            autorisation_ok = a_autorisation_sortie(id_value, today, periode_actuelle)
+            periode_actuelle = "matin" if heure < horaires["entree_soir_debut"] else "apres_midi"
+            autorisation_ok = find_autorisation(id_value, "sortie", periode_actuelle)
             if not autorisation_ok:
                 return ctx.error("Heure non valide pour pointer la sortie.", 400)
-            periode = "matin" if autorisation_ok.periode == PeriodeAutorisation.matin else "soir"
+            periode = "matin" if autorisation_ok.get("periode") == "matin" else "soir"
             via_autorisation = True
 
         # ---- Refus instantané (Redis) ----
@@ -2806,8 +2932,12 @@ def facial_client_sortie_step4_enregistrer():
         # ---- Pointage du jour ----
         t0 = perf_counter()
         pointage = Pointage.query.filter_by(idpers=id_value, date=today).first()
-        client = Client.query.filter_by(idpers=id_value).first()
         ctx.tick("db_pointage_ms", t0)
+
+        base_payload = {
+            "personnel": pc["personnel"],
+            "heure_de_sortie": ctx.heure_str,
+        }
 
         # ================= AGENT DE SURFACE =================
         if is_surface:
@@ -2830,33 +2960,27 @@ def facial_client_sortie_step4_enregistrer():
 
             sortie_autorisee_apres = datetime.combine(today, entree_time) + timedelta(hours=1)
 
-            if now < sortie_autorisee_apres and not a_autorisation_sortie_surface(id_value, today):
+            if now < sortie_autorisee_apres and not find_autorisation(id_value, "sortie"):
                 return ctx.error("La sortie n'est pas autorisée", 403)
 
-            t0 = perf_counter()
             pointage.heure_sortie_unique = now
-            db.session.commit()
-            ctx.tick("save_ms", t0)
+            snapshot = ctx.commit(pointage)
 
-            description = f"Sortie enregistrée (surface) pour {personnel.matricule}"
+            description = f"Sortie enregistrée (surface) pour {pc['matricule']}"
             return ctx.success(
-                pointage, personnel, "unique",
+                snapshot, "unique",
                 notif_description=description,
                 message=description,
                 payload={
+                    **base_payload,
                     "message": "Sortie enregistrée avec succès (agent de surface)",
                     "speech": "Sortie d'agent de surface enregistré avec succès",
-                    "personnel": personnel.to_dict(),
-                    "heure_de_sortie": ctx.heure_str,
-                    "pointage": pointage.to_dict(),
                 },
             )
 
         # ================= PERSONNEL STANDARD =================
         if not pointage or (not pointage.heure_entree_matin and not pointage.heure_entree_soir):
             return ctx.error("Aucune entrée trouvée aujourd'hui.", 400)
-
-        t0 = perf_counter()
 
         if periode == "matin":
             if via_autorisation:
@@ -2890,26 +3014,24 @@ def facial_client_sortie_step4_enregistrer():
 
             pointage.heure_sortie_soir = now
 
-        db.session.commit()
-        ctx.tick("save_ms", t0)
+        snapshot = ctx.commit(pointage)
 
-        message = f"Sortie enregistrée avec succès pour {personnel.matricule}"
+        message = f"Sortie enregistrée avec succès pour {pc['matricule']}"
         return ctx.success(
-            pointage, personnel, periode,
-            notif_description=f"Sortie enregistrée pour {personnel.matricule}",
+            snapshot, periode,
+            notif_description=f"Sortie enregistrée pour {pc['matricule']}",
             message=message,
             payload={
+                **base_payload,
+                "client": pc.get("client"),
                 "message": message,
                 "speech": "Sortie enregistrée avec succès",
-                "personnel": personnel.to_dict(),
-                "client": client.to_dict() if client else None,
-                "heure_de_sortie": ctx.heure_str,
-                "pointage": pointage.to_dict(),
             },
         )
 
     except Exception as e:
         db.session.rollback()
+        ctx.created = False
         return ctx.error(str(e), 500)
 
     finally:

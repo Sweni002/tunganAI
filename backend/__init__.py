@@ -86,6 +86,9 @@ def create_app():
     from utils.cache import register_cache_invalidation
     register_cache_invalidation(db)
 
+    from utils.pointage_context import register_context_invalidation
+    register_context_invalidation(db)
+
     migrate.init_app(app, db)
     socketio.init_app(app, message_queue=REDIS_URL)
     login_manager.init_app(app)
@@ -158,14 +161,19 @@ def create_app():
     if ENABLE_SCHEDULER:
         scheduler.init_app(app)
 
-        @scheduler.task('cron', id='check_absents_matin_task', hour=12, minute=43)
+        # Toutes les 15 min entre 12h et 14h : chaque service est traité
+        # dès que sa fenêtre de sortie matin est close.
+        @scheduler.task('cron', id='check_absents_matin_task',
+                        minute='*/15', hour='12-13')
         def scheduled_absence_check():
             with app.app_context():
                 from api.absence_checker import check_absents_matin
                 check_absents_matin()
                 print("[Scheduler] check_absents_matin() exécuté")
 
-        @scheduler.task('cron', id='check_absents_soir_task', hour=17, minute=30)
+        # Toutes les 15 min entre 17h et 19h : idem pour la sortie soir.
+        @scheduler.task('cron', id='check_absents_soir_task',
+                        minute='*/15', hour='17-18')
         def scheduled_absence_check_soir():
             with app.app_context():
                 from api.absence_checker import check_absents_soir

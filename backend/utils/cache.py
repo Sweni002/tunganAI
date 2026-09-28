@@ -161,6 +161,17 @@ def register_cache_invalidation(db):
             continue
 
         # ==========================================
+        # APPRENTISSAGE FACIAL (embedding / descripteur)
+        # Mis à jour à chaque pointage : ne change aucune fiche
+        # d'assiduité -> ne pas invalider tout le cache.
+        # ==========================================
+
+        if nom == "Personnels":
+            from utils.pointage_context import is_learning_only_update
+            if is_learning_only_update(obj, session):
+                continue
+
+        # ==========================================
         # AUTRES MODELES
         # ==========================================
 

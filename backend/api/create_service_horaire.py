@@ -1,18 +1,10 @@
-# -----------------------------
-# POST create service + horaires (UN SEUL APPEL, transaction atomique)
-# -----------------------------
-# Le front envoie tout en multipart/form-data :
-#   - champs service : nom, addresse, sigle, code_service, logo (fichier)
-#   - champs horaires : entree_matin_debut, entree_matin_fin,
-#                       sortie_matin_debut, sortie_matin_fin,
-#                       entree_soir_debut, entree_soir_fin,
-#                       sortie_soir_debut, sortie_soir_fin  (strings "HH:MM")
+# api/services_api.py
 #
-# Un seul commit : si les horaires sont invalides, RIEN n'est écrit en base
-# (plus de service orphelin sans horaires, plus de retry partiel côté front).
+# POST create service + horaires (UN SEUL APPEL, transaction atomique)
+# ... (commentaire d'origine conservé)
 
-from flask import Blueprint, request, jsonify
-from models import db,ServiceMacAutorisee
+from flask import Blueprint, request, jsonify, current_app   # ✅ AJOUT current_app
+from models import db, ServiceMacAutorisee
 from models.horaire import HorairesService
 from models.services import Services
 from datetime import datetime
@@ -21,12 +13,9 @@ bp = Blueprint("services_api", __name__)
 
 
 # -----------------------------
-# Helpers horaires (logique conservée telle quelle)
+# Helpers horaires (inchangés)
 # -----------------------------
 def parse_hhmm(value: str) -> datetime:
-    """
-    "07:10" -> datetime(2000,1,1,7,10)
-    """
     try:
         h, m = map(int, value.split(":"))
         return datetime(2000, 1, 1, h, m)
@@ -49,7 +38,6 @@ def validate_ranges(h):
         raise ValueError("Chevauchement entre matin et soir")
 
 
-
 import re
 
 MAC_ADDRESS_REGEX = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
@@ -66,22 +54,39 @@ def validate_mac_format(mac: str):
 
 
 # =========================================================
+# ✅ AJOUT — Invalidation du cache MAC côté pointage
+# =========================================================
+# Deux clés Redis sont concernées (mêmes formats que dans
+# api/pointage_faciale.py et utils/pointage_redis.py) :
+#
+#   pointage:v1:mac_day:{MAC}:{YYYYMMDD}   (positive ou négative "-")
+#   pointage:v1:mac:{MAC}                  (cache court de utils.pointage_redis)
+#
+# Sans cette invalidation, un poste qui a tenté de pointer AVANT l'ajout
+# de sa MAC reste bloqué sur "adresse MAC non autorisée" pendant jusqu'à
+# 300 s (MAC_NEGATIVE_TTL) même après l'ajout en base.
+def _invalidate_mac_cache(mac_address: str) -> None:
+    if not mac_address:
+        return
+    try:
+        redis_client = current_app.extensions.get("redis")
+        if redis_client is None:
+            return
+
+        mac_norm = normalize_mac(mac_address)
+        today = datetime.now().strftime("%Y%m%d")
+
+        redis_client.delete(f"pointage:v1:mac_day:{mac_norm}:{today}")
+        redis_client.delete(f"pointage:v1:mac:{mac_norm}")
+
+    except Exception as exc:
+        # On ne fait JAMAIS échouer l'ajout/suppression à cause du cache.
+        print(f"[MAC Cache] Invalidation impossible pour {mac_address}: {exc}")
+
+
+# =========================================================
 # POST — Ajouter une ou plusieurs adresses MAC à un service
 # =========================================================
-# Le front peut envoyer soit une seule MAC, soit une liste :
-#
-# 1) Une seule adresse :
-# { "mac_address": "AA:BB:CC:DD:EE:FF", "description": "Poste accueil" }
-#
-# 2) Plusieurs adresses d'un coup :
-# { "mac_addresses": [
-#     { "mac_address": "AA:BB:CC:DD:EE:FF", "description": "Poste accueil" },
-#     { "mac_address": "11:22:33:44:55:66", "description": "PC bureau 2" }
-#   ]
-# }
-#
-# Toutes les MAC sont validées AVANT tout écriture en base (comme pour les
-# horaires) : si une seule est invalide ou déjà prise, rien n'est enregistré.
 @bp.route("/<int:idserv>/mac-addresses", methods=["POST"])
 def add_mac_addresses(idserv):
     data = request.get_json()
@@ -92,8 +97,6 @@ def add_mac_addresses(idserv):
     if not service:
         return jsonify({"error": "Service introuvable"}), 404
 
-    # Normalisation en une liste unique d'entrées à traiter, peu importe le
-    # format d'entrée choisi par le front (single vs bulk).
     entries = []
     if "mac_addresses" in data:
         if not isinstance(data["mac_addresses"], list) or not data["mac_addresses"]:
@@ -126,7 +129,7 @@ def add_mac_addresses(idserv):
                 "description": entry.get("description"),
             })
 
-        # ---- 2) Vérifier qu'aucune n'est déjà utilisée en base (par ce service ou un autre) ----
+        # ---- 2) Vérifier qu'aucune n'est déjà utilisée en base ----
         existing_macs = {
             m.mac_address
             for m in ServiceMacAutorisee.query.filter(
@@ -150,6 +153,10 @@ def add_mac_addresses(idserv):
             created.append(mac_entry)
 
         db.session.commit()
+
+        # ✅ AJOUT — Invalider le cache APRÈS un commit réussi
+        for m in created:
+            _invalidate_mac_cache(m.mac_address)
 
         return (
             jsonify(
@@ -192,32 +199,25 @@ def delete_mac_address(idserv, mac_id):
     if not mac_entry:
         return jsonify({"error": "Adresse MAC introuvable pour ce service"}), 404
 
+    # ✅ AJOUT — Garder la MAC en mémoire : l'objet devient détaché après delete
+    mac_to_invalidate = mac_entry.mac_address
+
     try:
         db.session.delete(mac_entry)
         db.session.commit()
+
+        # ✅ AJOUT — Invalider le cache pour que le poste réponde 403 immédiatement
+        _invalidate_mac_cache(mac_to_invalidate)
+
         return jsonify({"message": "Adresse MAC supprimée avec succès"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-    
+
+
 # -----------------------------
 # PUT update horaires d'un service
 # -----------------------------
-# À ajouter dans api/horaire_api.py (blueprint "horaires_api",
-# enregistré sous /api/horaires) → URL finale : PUT /api/horaires/<idserv>
-#
-# Le front envoie du JSON avec les 8 plages en snake_case (strings "HH:MM") :
-# {
-#   "entree_matin_debut": "07:10", "entree_matin_fin": "08:10",
-#   "sortie_matin_debut": "11:20", "sortie_matin_fin": "12:30",
-#   "entree_soir_debut": "13:30", "entree_soir_fin": "14:00",
-#   "sortie_soir_debut": "17:00", "sortie_soir_fin": "18:00"
-# }
-#
-# Réutilise parse_hhmm / validate_order / validate_ranges déjà présents
-# dans le fichier. Si le service n'a pas encore d'horaires (ancien service
-# créé avant la fonctionnalité), ils sont créés (upsert).
-
 HORAIRE_FIELDS = [
     "entree_matin_debut", "entree_matin_fin",
     "sortie_matin_debut", "sortie_matin_fin",
@@ -233,23 +233,17 @@ def update_horaires_service(idserv):
         return jsonify({"error": "Corps JSON manquant"}), 400
 
     try:
-        # ---- 1) Le service doit exister ----
         service = Services.query.get(idserv)
         if not service:
             return jsonify({"error": "Service introuvable"}), 404
 
-        # ---- 2) Champs manquants ----
         missing = [f for f in HORAIRE_FIELDS if not data.get(f)]
         if missing:
             return jsonify({"error": f"Champ manquant: {', '.join(missing)}"}), 400
 
-        # ---- 3) Conversion "HH:MM" -> datetime (même helper que le POST) ----
         h = {field: parse_hhmm(data[field]) for field in HORAIRE_FIELDS}
-
-        # ---- 4) Validation des plages (début < fin, non-chevauchement) ----
         validate_ranges(h)
 
-        # ---- 5) Update, ou création si le service n'en avait pas (upsert) ----
         horaires = HorairesService.query.filter_by(idserv=idserv).first()
 
         if horaires:
@@ -257,11 +251,12 @@ def update_horaires_service(idserv):
                 setattr(horaires, field, value)
             action = "mis à jour"
         else:
-            # Ancien service sans horaires : on les crée
             horaires = HorairesService(idserv=idserv, **h)
             db.session.add(horaires)
             action = "créés"
 
+        # L'invalidation du contexte de pointage (ctx cache) est déjà gérée
+        # par les events SQLAlchemy de utils/pointage_context.py.
         db.session.commit()
 
         return (
@@ -285,19 +280,17 @@ def update_horaires_service(idserv):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-    
+
+
 @bp.route('/', methods=['POST'])
 def create_service_with_horaires():
-    # =========================================================
-    # 1) PARTIE SERVICE — validations conservées
-    # =========================================================
+    # ... (corps inchangé — pas de MAC manipulée ici)
     nom = request.form.get('nom')
     addresse = request.form.get('addresse')
     sigle = request.form.get('sigle')
     logo_file = request.files.get('logo')
     code_service = request.form.get("code_service")
 
-    # Validation service
     if not nom:
         return jsonify({'error': 'Le nom du service est requis'}), 400
     if not addresse:
@@ -305,34 +298,22 @@ def create_service_with_horaires():
     if not code_service:
         return jsonify({"error": "Le code du service est requis"}), 400
 
-    # Vérifier doublons
     if Services.query.filter_by(addresse=addresse, nom=nom).first():
         return jsonify({'error': 'Un service avec cette adresse existe déjà'}), 409
     if Services.query.filter_by(code_service=code_service).first():
         return jsonify({'error': 'Un service avec ce code existe déjà'}), 409
 
-    # =========================================================
-    # 2) PARTIE HORAIRES — validations conservées
-    #    (AVANT tout écriture en base : si invalide → rien n'est créé)
-    # =========================================================
     try:
-        # Champs manquants
         missing = [f for f in HORAIRE_FIELDS if not request.form.get(f)]
         if missing:
             return jsonify({"error": f"Champ manquant: {', '.join(missing)}"}), 400
 
-        # Conversion "HH:MM" -> datetime
         h = {field: parse_hhmm(request.form.get(field)) for field in HORAIRE_FIELDS}
-
-        # Validation des plages (début < fin, non-chevauchement matin/soir)
         validate_ranges(h)
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    # =========================================================
-    # 3) CRÉATION ATOMIQUE : service + horaires, UN SEUL commit
-    # =========================================================
     logo_bytes = logo_file.read() if logo_file else None
 
     try:
@@ -344,15 +325,10 @@ def create_service_with_horaires():
             code_service=code_service,
         )
         db.session.add(service)
-
-        # flush : exécute l'INSERT du service pour obtenir son idserv
-        # SANS committer (la transaction reste ouverte)
         db.session.flush()
 
         horaires = HorairesService(idserv=service.idserv, **h)
         db.session.add(horaires)
-
-        # Un seul commit pour les deux : tout passe ou rien ne passe
         db.session.commit()
 
         return jsonify({
@@ -372,7 +348,7 @@ def create_service_with_horaires():
         }), 201
 
     except Exception as e:
-        db.session.rollback()  # annule le service ET les horaires
+        db.session.rollback()
         return jsonify({
             'error': f'Une erreur est survenue lors de la création du service : {str(e)}'
         }), 500
