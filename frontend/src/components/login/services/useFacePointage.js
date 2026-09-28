@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { authService } from "../services/authService";
-import { checkFaceCovering, isFaceCovered } from "../services/roboflowService";
 import { checkMacAgent, openMacAgentInstaller } from "./macAgentService";
 import {
   getFaceLandmarker,
@@ -593,24 +592,8 @@ export const useFacePointage = () => {
 
       setSendingToServer(true);
 
-      // ==================== ÉTAPE 0 : ANTI-MASQUE ====================
-      setProcessingStep(0);
-
-      let coveringResult;
-      try {
-        coveringResult = await checkFaceCovering(processedBlob, wifiMacAddress, typePointage);
-      } catch (coveringErr) {
-        showErrorModal(coveringErr.message || "Erreur anti-masque.");
-        return;
-      }
-
-      if (isFaceCovered(coveringResult)) {
-        showErrorModal("Visage masqué détecté. Retirez le masque/lunettes/Casquette...");
-        return;
-      }
-
       // ==================== ÉTAPE 1 : ANTI-SPOOF ====================
-      setProcessingStep(1);
+      setProcessingStep(0);
 
       let antispoofResult;
       try {
@@ -626,7 +609,7 @@ export const useFacePointage = () => {
       }
 
       // ==================== ÉTAPE 2 : RECONNAISSANCE ====================
-      setProcessingStep(2);
+      setProcessingStep(1);
 
       let recognitionResult;
       try {
@@ -645,7 +628,7 @@ export const useFacePointage = () => {
       }
 
       // ==================== ÉTAPE 3 : ENREGISTREMENT ====================
-      setProcessingStep(3);
+      setProcessingStep(2);
 
       // L'identité (id, embedding, scores) reste côté serveur (Redis) depuis l'étape 3 :
       // payload léger et impossible à falsifier.
