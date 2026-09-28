@@ -28,11 +28,12 @@ def get_flask_app():
     if _flask_app is not None:
         return _flask_app
 
+    from config import Config  # ✅ Import direct de la classe Config
     from flask import Flask
     from models import db
 
     app = Flask("pointage_worker")
-    app.config.from_object("config.Config")
+    app.config.from_object(Config)  # ✅ Passer directement l'objet Config
 
     app.extensions["redis"] = redis.from_url(
         REDIS_URL,
@@ -52,7 +53,6 @@ def get_flask_app():
 
     _flask_app = app
     return app
-
 
 class FlaskTask(Task):
     def __call__(self, *args, **kwargs):
