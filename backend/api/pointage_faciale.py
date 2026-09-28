@@ -2340,9 +2340,6 @@ def _get_or_create_pointage(idpers, jour):
 # ============================================================
 # ÉTAPE 3 : reconnaissance (service lu dans le jeton, matching vectorisé)
 # ============================================================
-# ============================================================
-# ÉTAPE 3 : reconnaissance (service lu dans le jeton, matching vectorisé)
-# ============================================================
 @bp.route("/facial_client/step3-recognition", methods=["POST"])
 def facial_client_step3_recognition():
     start_global = perf_counter()
@@ -2361,7 +2358,7 @@ def facial_client_step3_recognition():
         return jsonify({"error": "Image introuvable ou expirée, veuillez recommencer"}), 400
     elapsed_validate = (perf_counter() - t_validate) * 1000
 
-    # ---- Poste : jeton du jour + revalidation MAC ----
+    # ---- Poste : uniquement le jeton du jour (aucune requête en base) ----
     t_mac = perf_counter()
     payload = _read_poste_token(poste_token, mac_address) if poste_token else None
     if not payload:
@@ -2370,19 +2367,6 @@ def facial_client_step3_recognition():
             "error": "Session du poste expirée, veuillez réessayer.",
             "code": "poste_token_invalid",
         }), 401
-
-    # ✅ AJOUT — La MAC doit toujours être autorisée aujourd'hui.
-    # Cache Redis HIT dans le cas normal (déjà rempli par step1 ce matin) → coût négligeable.
-    # Cache MISS uniquement après action admin (ajout/retrait MAC) ou 1er appel de la journée.
-    # Couvre le cas où la MAC est retirée en cours de journée alors que le navigateur
-    # détient encore un jeton signé valable jusqu'à minuit.
-    if not get_service_info_for_today(mac_address):
-        delete_image(temp_id)
-        return jsonify({
-            "error": "Ce poste n'est plus autorisé à effectuer un pointage.",
-            "code": "poste_revoked",
-        }), 401
-
     idserv = payload["idserv"]
     service_nom = payload.get("service_nom", "")
     elapsed_mac = (perf_counter() - t_mac) * 1000
@@ -2497,7 +2481,6 @@ def facial_client_step3_recognition():
             "total_ms": round(total, 3),
         },
     }), 200
-    
 
 # ============================================================
 # Contexte commun à l'étape 4 (entrée / sortie)
