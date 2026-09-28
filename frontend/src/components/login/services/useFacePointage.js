@@ -647,17 +647,14 @@ export const useFacePointage = () => {
       // ==================== ÉTAPE 3 : ENREGISTREMENT ====================
       setProcessingStep(3);
 
+      // L'identité (id, embedding, scores) reste côté serveur (Redis) depuis l'étape 3 :
+      // payload léger et impossible à falsifier.
       const response = await authService.pointageStep4Enregistrer(
         {
-          role: recognitionResult.role,
-          id_value: recognitionResult.id_value,
-          emb: recognitionResult.emb,
-          score_face: recognitionResult.score_face,
-          second_score: recognitionResult.second_score,
-          face_descriptor: descriptorArray,
-          mac_address: wifiMacAddress,
           temp_id: recognitionResult.temp_id,
           type_pointage: typePointage,
+          mac_address: wifiMacAddress,
+          face_descriptor: descriptorArray,
         },
         isSortie
       );

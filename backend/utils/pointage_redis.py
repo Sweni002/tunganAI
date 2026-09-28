@@ -2,6 +2,7 @@
 """
 Données du pointage stockées dans Redis (partagées entre instances) :
 - step2 -> step3 -> step4 : embedding + image
+- step3 -> step4 : résultat de reconnaissance (usage unique, anti-rejeu)
 - cache MAC -> service
 - tâches exécutées une seule fois par jour
 - verrou anti-double pointage + "déjà pointé" instantané
@@ -10,6 +11,7 @@ Si Redis est indisponible : repli mémoire (pending) ou comportement
 d'origine (caches et verrous ignorés).
 """
 
+import base64
 import json
 import logging
 import threading
@@ -26,6 +28,8 @@ KEY_PREFIX = "pointage:v1"
 PENDING_TTL = 180      # s
 MAC_CACHE_TTL = 300    # s
 LOCK_TTL = 10          # s
+RECO_TTL = 120         # s : délai max entre step3 et step4
+IMAGE_LOG_TTL = 600    # s : image gardée pour le journal écrit par Celery
 
 
 def _r():
@@ -162,6 +166,65 @@ def delete_image(temp_id):
     except redis.RedisError:
         pass
     _mem_delete(_img_key(temp_id))
+
+
+def extend_image(temp_id, ttl=IMAGE_LOG_TTL):
+    """Prolonge l'image : elle sera lue puis supprimée par la tâche Celery du journal."""
+    if not temp_id:
+        return
+    try:
+        _r().expire(_img_key(temp_id), ttl)
+    except redis.RedisError:
+        img = _mem_get(_img_key(temp_id))
+        if img is not None:
+            _mem_set(_img_key(temp_id), img, ttl)
+
+
+# ============================================================
+# step3 -> step4 : résultat de reconnaissance
+# Le client ne renvoie plus id_value / emb / scores : step4 lit ceci.
+# ============================================================
+
+def _reco_key(temp_id):
+    return f"{KEY_PREFIX}:reco:{temp_id}"
+
+
+def store_reco(temp_id, reco):
+    data = dict(reco)
+    emb = data.pop("emb", None)
+    if emb is not None:
+        data["emb_b64"] = base64.b64encode(np.asarray(emb, dtype=np.float32).tobytes()).decode()
+    raw = json.dumps(data)
+
+    try:
+        _r().setex(_reco_key(temp_id), RECO_TTL, raw)
+    except redis.RedisError as exc:
+        logger.warning("[Pointage Redis] store_reco en mémoire : %s", exc)
+        _mem_set(_reco_key(temp_id), raw, RECO_TTL)
+
+
+def pop_reco(temp_id):
+    """Lecture + suppression atomiques (MULTI/EXEC) : un temp_id ne sert qu'une fois."""
+    raw = None
+    try:
+        pipe = _r().pipeline(transaction=True)
+        pipe.get(_reco_key(temp_id))
+        pipe.delete(_reco_key(temp_id))
+        raw, _ = pipe.execute()
+    except redis.RedisError as exc:
+        logger.warning("[Pointage Redis] pop_reco : %s", exc)
+
+    if raw is None:
+        raw = _mem_get(_reco_key(temp_id), pop=True)
+    if raw is None:
+        return None
+
+    data = json.loads(raw)
+    emb_b64 = data.pop("emb_b64", None)
+    data["emb"] = (
+        np.frombuffer(base64.b64decode(emb_b64), dtype=np.float32).copy() if emb_b64 else None
+    )
+    return data
 
 
 # ============================================================

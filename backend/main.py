@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 from __init__ import create_app, socketio
 from models import db
 from flask import send_from_directory, request

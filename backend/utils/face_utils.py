@@ -398,43 +398,61 @@ def find_best_match(emb, allowed_rows=None):
 # -------------------------------
 # Apprentissage incrémental (+ diffusion aux autres instances)
 # -------------------------------
+def blend_embedding_local(idpers, new_embedding, score,
+                          second_score,
+                          alpha=0.15,
+                          min_score_update=0.65,
+                          min_gap=0.15):
+    """
+    Apprentissage en mémoire uniquement (quelques µs) + diffusion Pub/Sub.
+    Renvoie le vecteur mis à jour (à écrire en base par Celery) ou None.
+    """
+    if score is None or new_embedding is None:
+        return None
+
+    if score < min_score_update:
+        print("[face_utils] Score trop faible → pas d'apprentissage")
+        return None
+
+    if second_score is not None and (score - second_score) < min_gap:
+        print("[face_utils] Ecart trop faible → risque confusion")
+        return None
+
+    idpers = int(idpers)
+    new_emb = _normalize_embedding(new_embedding)
+
+    with _lock:
+        row = _ROW_OF.get(idpers)
+        if row is None:
+            print(f"[face_utils] ID {idpers} absent du cache")
+            return None
+
+        updated = _normalize_embedding((1 - alpha) * _MATRIX[row] + alpha * new_emb)
+        _MATRIX[row] = updated
+
+    _publish("update", idpers=idpers, vec=updated)
+    return updated
+
+
 def update_personnel_embedding(idpers, new_embedding, score,
                                second_score,
                                alpha=0.15,
                                min_score_update=0.65,
                                min_gap=0.15):
-    if score is None or new_embedding is None:
-        return
-
-    if score < min_score_update:
-        print("[face_utils] Score trop faible → pas d'apprentissage")
-        return
-
-    if second_score is not None and (score - second_score) < min_gap:
-        print("[face_utils] Ecart trop faible → risque confusion")
-        return
-
-    idpers = int(idpers)
-
+    """Version synchrone (mémoire + base), conservée pour les anciennes routes."""
     try:
-        new_emb = _normalize_embedding(new_embedding)
+        updated = blend_embedding_local(
+            idpers, new_embedding, score, second_score,
+            alpha=alpha, min_score_update=min_score_update, min_gap=min_gap,
+        )
+        if updated is None:
+            return
 
-        with _lock:
-            row = _ROW_OF.get(idpers)
-            if row is None:
-                print(f"[face_utils] ID {idpers} absent du cache")
-                return
-
-            updated = (1 - alpha) * _MATRIX[row] + alpha * new_emb
-            updated = _normalize_embedding(updated)
-            _MATRIX[row] = updated
-
-        personnel = Personnels.query.get(idpers)
+        personnel = Personnels.query.get(int(idpers))
         if personnel:
             personnel.set_embedding(updated)
             db.session.commit()
 
-        _publish("update", idpers=idpers, vec=updated)
         print(f"[face_utils] Apprentissage OK pour ID {idpers}")
 
     except Exception as e:
