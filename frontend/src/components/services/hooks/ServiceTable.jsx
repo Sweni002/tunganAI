@@ -10,6 +10,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import WifiIcon from "@mui/icons-material/Wifi"; // <-- nouvelle icône
 import { EditOutlined } from "@ant-design/icons";
 import styles from "./service.module.css";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 
 const FONT = "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif";
 
@@ -57,7 +58,7 @@ const RowActionsMenu = ({ record, onEdit, onDelete, onEditHoraires, onManageMacA
         onClick={handleOpen}
         size="small"
       >
-        <MoreVertIcon style={{ fontSize: "1.1rem", color: "#4f4f4f" }} />
+        <MoreHorizIcon style={{ fontSize: "1.1rem", color: "#4f4f4f" }} />
       </IconButton>
 
       <Menu
@@ -103,16 +104,59 @@ const RowActionsMenu = ({ record, onEdit, onDelete, onEditHoraires, onManageMacA
 };
 
 const buildColumns = ({ onEdit, onDelete, onEditHoraires, onManageMacAddresses }) => [
+
   {
     title: "",
     dataIndex: "logo",
     key: "logo",
-    width: 60,
-    render: (logo) => (
-      <Avatar src={`data:image/png;base64,${logo}`} alt="logo" sx={{ width: 55, height: 50 }} />
-    ),
+    width: 90,
     align: "center",
+    render: (logo) => (
+      <div
+        style={{
+          width: 64,
+          height: 56,
+          borderRadius: 10,
+          backgroundColor: "#ffffff",
+          border: "1px solid #e2e8f0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          padding: 4,
+          margin: "0 auto",
+          boxSizing: "border-box",
+        }}
+      >
+        {logo ? (
+          <img
+            src={`data:image/png;base64,${logo}`}
+            alt="logo"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        ) : (
+          <span
+            style={{
+              fontSize: "0.7rem",
+              color: "#cbd5e1",
+              fontFamily: FONT,
+            }}
+          >
+            —
+          </span>
+        )}
+      </div>
+    ),
   },
+
+
   { title: "Code service", dataIndex: "code_service", key: "code_service", align: "center" },
   { title: "Nom", dataIndex: "nom", key: "nom", align: "center" },
   { title: "Sigle", dataIndex: "sigle", key: "sigle", align: "center" },

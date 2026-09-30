@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from flask_session import Session
 from flask_apscheduler import APScheduler
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 from models import db, Personnels
 from api.task import creer_pointages_vides
 from utils import face_utils
@@ -17,20 +18,34 @@ import redis
 
 load_dotenv()
 
-SOCKET_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+USE_HTTPS = os.getenv("USE_HTTPS", "false").lower() == "true"
+
+# ============================================================
+# Origines autorisées (http + https, avec ou sans port)
+# ============================================================
+SOCKET_ALLOWED_ORIGINS = []
+
+for host in ("localhost", "127.0.0.1"):
+    for scheme in ("http", "https"):
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://{host}")
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://{host}:5173")
 
 for i in range(1, 255):
-    SOCKET_ALLOWED_ORIGINS.append(f"http://192.168.88.{i}")
-    SOCKET_ALLOWED_ORIGINS.append(f"https://192.168.88.{i}")
+    for scheme in ("http", "https"):
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://192.168.88.{i}")
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://192.168.88.{i}:5173")
+
+CORS_ORIGINS = [
+    r"^https?://192\.168\.88\.[0-9]{1,3}(?::[0-9]+)?$",
+    r"^https?://127\.0\.0\.1(?::[0-9]+)?$",
+    r"^https?://localhost(?::[0-9]+)?$",
+]
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
 socketio = SocketIO(
     cors_allowed_origins=SOCKET_ALLOWED_ORIGINS,
-async_mode="threading",  
+    async_mode="threading",
     message_queue=REDIS_URL,
 )
 
@@ -45,6 +60,12 @@ ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
 
 def create_app():
     app = Flask(__name__)
+
+    # /api/types et /api/types/ acceptés sans redirection 308
+    app.url_map.strict_slashes = False
+
+    # Derrière Vite/nginx : Flask respecte X-Forwarded-Proto/Host (https conservé)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
     app.config.from_object('config.Config')
 
@@ -73,7 +94,7 @@ def create_app():
         SESSION_USE_SIGNER=True,
         SECRET_KEY=SECRET_KEY,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SECURE=False,
+        SESSION_COOKIE_SECURE=USE_HTTPS,
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(minutes=15),
         SESSION_REFRESH_EACH_REQUEST=True,
@@ -94,15 +115,7 @@ def create_app():
 
     Session(app)
 
-    CORS(
-        app,
-        supports_credentials=True,
-        origins=[
-            r"^https?://192\.168\.88\.[0-9]{1,3}(?::[0-9]+)?$",
-            r"^http://127\.0\.0\.1:5173$",
-            r"^http://localhost:5173$",
-        ],
-    )
+    CORS(app, supports_credentials=True, origins=CORS_ORIGINS)
 
     @app.before_request
     def bypass_options():
