@@ -129,7 +129,7 @@ def _handle_sync_message(app, raw):
 
 def init_face_sync(app):
     """
-    Démarre l'écoute Redis Pub/Sub (greenlet eventlet) : chaque instance
+    Démarre l'écoute Redis Pub/Sub (thread daemon) : chaque instance
     applique les mises à jour d'embeddings faites par les autres.
     """
     global _SYNC_REDIS
@@ -155,10 +155,10 @@ def init_face_sync(app):
                         _handle_sync_message(app, message["data"])
             except Exception as e:
                 print(f"[face_utils] Sync interrompue, reconnexion : {e}")
-                eventlet.sleep(2)
+                time.sleep(2)
 
-    eventlet.spawn_n(_listen)
-
+    threading.Thread(target=_listen, name="face-sync", daemon=True).start()
+    
 
 # -------------------------------
 # Chargement des embeddings
