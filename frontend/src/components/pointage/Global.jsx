@@ -146,20 +146,21 @@ const markPasswordAsSeen = async () => {
 
 const [passwordDialogShown, setPasswordDialogShown] = useState(false);
 useEffect(() => {
-  if (!user) return;
-
-  const canChangePassword =
-    (user.personnel && user.personnel.can_change_password) ||
-    (user.responsable && user.responsable.can_change_password) ||
-    (user.admin && user.admin.can_change_password); // 🔹 ajout pour admin
-
-  if (canChangePassword && !passwordDialogShown) {
-    setPasswordDialogOpen(true);
-    setPasswordDialogShown(true); // ✅ marque comme déjà affiché
-
-      // 🔥 update DB une seule fois
-    markPasswordAsSeen();
-  }
+  // 🔒 Modal "Changement de mot de passe" désactivée : ne s'affiche plus.
+  // (logique conservée en commentaire si besoin de la réactiver un jour)
+  //
+  // if (!user) return;
+  //
+  // const canChangePassword =
+  //   (user.personnel && user.personnel.can_change_password) ||
+  //   (user.responsable && user.responsable.can_change_password) ||
+  //   (user.admin && user.admin.can_change_password);
+  //
+  // if (canChangePassword && !passwordDialogShown) {
+  //   setPasswordDialogOpen(true);
+  //   setPasswordDialogShown(true);
+  //   markPasswordAsSeen();
+  // }
 }, [user, passwordDialogShown]);
 useEffect(() => {
   if (!user || !user.responsable) return;
@@ -330,7 +331,7 @@ const fabIcon =
       )}
       <div
         style={{
-          paddingTop: isMobile ? "0px" : showHeader ? "130px" : 0,
+          paddingTop: isMobile ? "0px" : showHeader ? "180px" : 0,
         }}
       >
         {" "}
@@ -389,98 +390,6 @@ const fabIcon =
             </Badge>
           </Fab>
         </Tooltip>
-      )}
-
-      {user?.role === "personnel" && (
-        <div>
-          {!isMobile ? (
-            <Tooltip
-              title={
-                location.pathname === "/global/pointages"
-                  ? "Quitter"
-                  : "Scanner"
-              }
-              placement="left"
-            >
-              <Fab
-                aria-label="action-mobile"
-                sx={{
-                  position: "fixed",
-                  bottom: 17,
-                  right: 10,
-                  zIndex: 9999,
-                  width: 50,
-                  height: 50,
-                  backgroundImage: "linear-gradient(90deg,#00c4cc,#8b69b8)",
-                  color: "white",
-                }}
-                onClick={() => {
-                  if (location.pathname === "/global/pointages") {
-                    navigate(-1);
-                  } else {
-                    navigate("/global/pointages");
-                  }
-                }}
-              >
-                {location.pathname === "/global/pointages" ? (
-                  <Power size={24} />
-                ) : (
-                  <FaceRetouchingNaturalIcon sx={{ fontSize: 24 }} />
-                )}
-              </Fab>
-            </Tooltip>
-          ) : (
-            /* --- VERSION DESKTOP : SPEEDDIAL --- */
-            <SpeedDial
-              ariaLabel="Actions Menu"
-              open={openSpeed}
-              onOpen={handleOpenSpeedDial}
-              onClose={handleCloseSpeedDial}
-              sx={{
-                position: "fixed",
-                bottom: 7,
-                right: 7,
-                zIndex: 9999,
-                "& .MuiFab-primary": {
-                  width: 48,
-                  height: 50,
-                  backgroundImage: "linear-gradient(90deg,#00c4cc,#8b69b8)",
-                },
-                "& .MuiSpeedDialAction-staticTooltipLabel": {
-                  fontFamily: "'Poppins', sans-serif",
-                  fontWeight: 500,
-                  fontSize: "0.9rem",
-                  padding: "4px 10px",
-                },
-              }}
-              icon={
-                location.pathname === "/global/pointages" && !openSpeed ? (
-                  <Power size={24} color="white" />
-                ) : (
-                  <FaceRetouchingNaturalIcon size={22} color="white" />
-                )
-              }
-            >
-              {actions.map((action) => (
-                <SpeedDialAction
-                  key={action.name}
-                  icon={action.icon}
-                  tooltipTitle={action.name}
-                  tooltipOpen
-                  onClick={() => {
-                    if (action.onClick) action.onClick();
-                    handleCloseSpeedDial();
-                  }}
-                  sx={{
-                    "& .MuiSpeedDialAction-fab": {
-                      color: "#8b69b8",
-                    },
-                  }}
-                />
-              ))}
-            </SpeedDial>
-          )}
-        </div>
       )}
 
       <Drawer

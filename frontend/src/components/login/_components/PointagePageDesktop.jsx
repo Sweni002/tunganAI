@@ -114,22 +114,7 @@ const PointagePageDesktop = ({
                             display: 'block'
                         }}
                     />
-                    <Typography
-                        variant="h6"
-                        component="h1"
-                        sx={{
-                            color: "#e8f6f8",
-                            fontFamily: "'Roboto Mono', monospace",
-                            fontWeight: 700,
-                            letterSpacing: "1.5px",
-                            textTransform: "uppercase",
-                            background: "linear-gradient(90deg, #e8f6f8 0%, #7fd8ff 100%)",
-                            WebkitBackgroundClip: "text",
-                            WebkitTextFillColor: "transparent",
-                        }}
-                    >
-                        {import.meta.env.VITE_APP_NAME}
-                    </Typography>
+                
                 </div>
 
                 {/* Zone Droite : Action unique Accueil */}

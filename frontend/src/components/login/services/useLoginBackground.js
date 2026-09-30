@@ -6,7 +6,6 @@ import bgImage from "../../../assets/logo4.webp"; // ⚠️ ajuste le chemin sel
 export const useLoginBackground = (isLargeScreen) => {
   useEffect(() => {
     if (isLargeScreen) {
-      document.body.style.background = `linear-gradient(rgba(0,0,0,0.1), rgba(0,0,0,0.1)), url(${bgImage}) no-repeat center center fixed`;
       document.body.style.backgroundSize = "cover";
       document.body.style.margin = "0";
       document.body.style.padding = "0";

@@ -1,0 +1,196 @@
+/* ================= TOKENS M3 EXPRESSIVE ================= */
+.card {
+  --m3-spring-fast: cubic-bezier(0.42, 1.67, 0.21, 0.9);
+  --m3-spring-default: cubic-bezier(0.38, 1.21, 0.22, 1);
+  --m3-effects: cubic-bezier(0.34, 0.8, 0.34, 1);
+
+  --m3-primary: rgb(51, 94, 143);
+  --m3-primary-container: #d6e4f7;
+  --m3-on-primary-container: #0f2f52;
+  --m3-surface: #fbfcff;
+}
+
+/* ================= CARTE ================= */
+
+.card.card {
+  background-color: var(--m3-surface);
+  border-radius: 32px;
+  box-shadow:
+    0 1px 3px rgba(20, 50, 90, 0.12),
+    0 12px 32px rgba(20, 50, 90, 0.18);
+  animation: m3Enter 700ms var(--m3-spring-default) both;
+}
+
+@keyframes m3Enter {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.92);
+    border-radius: 72px;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    border-radius: 32px;
+  }
+}
+
+/* ================= TITRE ================= */
+
+.headline h2 {
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.headline span {
+  font-weight: 500;
+}
+
+/* ================= MOT DE PASSE OUBLIÉ ================= */
+
+.forgot p {
+  display: inline-block;
+  padding: 6px 12px;
+  margin: calc(1em - 6px) 0 calc(1em - 6px) -12px;
+  border-radius: 999px;
+  font-weight: 500;
+  transition:
+    background-color 200ms var(--m3-effects),
+    border-radius 350ms var(--m3-spring-fast),
+    color 200ms var(--m3-effects);
+}
+
+.forgot p:hover {
+  background-color: rgba(51, 94, 143, 0.08);
+}
+
+.forgot p:active {
+  background-color: rgba(51, 94, 143, 0.14);
+  border-radius: 8px;
+}
+
+/* ================= PANNEAU TONAL ================= */
+
+.tonal.tonal {
+  align-self: stretch;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 24px 16px;
+  border-radius: 28px;
+  background-color: var(--m3-primary-container);
+  color: var(--m3-on-primary-container);
+}
+
+/* Forme organique : entièrement visible, centrée derrière la Lottie */
+.tonal.tonal::before {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  top: 24px;
+  left: 50%;
+  margin-left: -110px;
+  background: linear-gradient(145deg, #bcd5f3 0%, #a9e0f6 100%);
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  animation: morph 10s var(--m3-effects) infinite;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+@keyframes morph {
+  0%,
+  100% {
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    transform: rotate(0deg) scale(1);
+  }
+  33% {
+    border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+    transform: rotate(30deg) scale(1.04);
+  }
+  66% {
+    border-radius: 50% 50% 40% 60% / 40% 50% 60% 50%;
+    transform: rotate(-20deg) scale(0.97);
+  }
+}
+
+.tonal.tonal > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Lottie : petit rebond au survol du panneau */
+.tonal.tonal > div > div:first-child {
+  transition: transform 500ms var(--m3-spring-fast);
+}
+
+.tonal.tonal:hover > div > div:first-child {
+  transform: scale(1.06) translateY(-4px);
+}
+
+.tonal.tonal h2 {
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: var(--m3-on-primary-container);
+}
+
+.tonal.tonal label {
+  color: #3d5575;
+}
+
+.tonal.tonal label strong {
+  color: var(--m3-primary);
+  font-weight: 600;
+}
+
+/* ================= RESPONSIVE / ACCESSIBILITÉ ================= */
+
+@media (max-width: 920px) {
+  .card.card {
+    border-radius: 0;
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.card,
+  .tonal.tonal::before {
+    animation: none;
+  }
+  .forgot p,
+  .tonal.tonal > div > div:first-child {
+    transition: none;
+  }
+}
+
+
+/* ================= SECOUSSE EN CAS D'ERREUR ================= */
+
+.card.card.shake {
+  animation: shake 500ms var(--m3-spring-fast);
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-10px);
+  }
+  40% {
+    transform: translateX(8px);
+  }
+  60% {
+    transform: translateX(-5px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.card.shake {
+    animation: none;
+  }
+}

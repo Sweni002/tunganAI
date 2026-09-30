@@ -7,7 +7,7 @@ import IconButton from '@mui/material/IconButton';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Button from '@mui/material/Button';
 import { useNavigate } from "react-router-dom"
-import bgImage from '../../assets/logo4.webp';
+import bgImage from '../../assets/login-bg.png';
 import { AuthContext } from '../../AuthContext';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';

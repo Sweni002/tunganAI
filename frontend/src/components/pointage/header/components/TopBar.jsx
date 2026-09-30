@@ -1,26 +1,43 @@
 import React, { useState, useEffect } from "react";
-import { Avatar, Typography } from "@mui/material";
+import { Avatar } from "@mui/material";
 import Logo from "../../../../assets/logo1.png";
 import Logo2 from "../../../../assets/finances.png";
+import HeaderBanner from "../../../../assets/header-banner.png";
 import { StyledBadge } from "../Header.styles";
 import { stringAvatar } from "../Header.utils";
 import AccountBadge from "./AccountBadge";
 import DarkModeSwitch from "../../DarkModeSwitch";
 
-const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, handleAvatarClick }) => {
+const HIDE_AT = 40; // px : masquer au-delà
+const SHOW_AT = 10; // px : réafficher en dessous (anti-clignotement)
+
+const SPRING_FAST = "cubic-bezier(0.42, 1.67, 0.21, 0.9)";
+
+const TopBar = ({
+  styles,
+  admin,
+  API_URL,
+  isMobile,
+  darkMode,
+  toggleDarkMode,
+  handleAvatarClick,
+}) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
+    let ticking = false;
+
     const handleScroll = () => {
-      // Masque si le scroll dépasse 20px, réaffiche uniquement tout en haut
-      if (window.scrollY > 20) {
-        setIsVisible(false);
-      } else {
-        setIsVisible(true);
-      }
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        setIsVisible((prev) => (prev ? y < HIDE_AT : y < SHOW_AT));
+        ticking = false;
+      });
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -36,47 +53,27 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
         : Logo2;
 
   return (
-    <div className={`${styles.headerHaut} ${!isVisible ? styles.hidden : ""}`}>
+    <header
+      className={`${styles.headerHaut} ${!isVisible ? styles.hidden : ""}`}
+      style={{ backgroundImage: `url(${HeaderBanner})` }}
+    >
       <div className={styles.cardHeader}>
-        {admin?.role !== "personnel" && (
-          <div className={styles.images}>
-            <div className={styles.logo2}>
-              <img
-                src={Logo}
-                alt="Logo service"
-                onError={(e) => (e.currentTarget.src = Logo)}
-              />
-            </div>
-          </div>
-        )}
+        {/* Le logo Point'eo est dans l'image de fond : titre gardé pour l'accessibilité */}
+        <h1 className={styles.srOnly}>{import.meta.env.VITE_APP_NAME}</h1>
 
-        <div className={styles.facegov}>
-      <Typography
-    variant="h6"
-    component="h1"
-    sx={{
-        color: "#e8f6f8",
-        fontFamily: "'Roboto Mono', monospace",
-        fontWeight: 700,
-        letterSpacing: "1.5px",
-        textTransform: "uppercase",
-        background: "linear-gradient(90deg, #00b4db 0%, #0083b0 100%)",
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-    }}
->
-    {import.meta.env.VITE_APP_NAME}
-</Typography>
-        </div>
-
+        {/* MOBILE : thème + avatar */}
         {isMobile && (
-          <div className={styles.mobileAvatar} style={{ gap: 10, display: "flex", alignItems: "center" }}>
+          <div
+            className={`${styles.mobileAvatar} ${styles.enter}`}
+            style={{ "--d": "160ms" }}
+          >
             <DarkModeSwitch darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
             <StyledBadge
               onClick={handleAvatarClick}
               overlap="circular"
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               variant="dot"
+              sx={{ cursor: "pointer" }}
             >
               <Avatar
                 src={
@@ -93,15 +90,18 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
                   color: "#fff",
                   fontWeight: "bold",
                   fontSize: "0.8rem",
+                  borderRadius: "50%",
+                  transition: `border-radius 450ms ${SPRING_FAST}, transform 350ms ${SPRING_FAST}`,
+                  "&:hover": { borderRadius: "14px" },
+                  "&:active": { transform: "scale(0.9)", borderRadius: "10px" },
                 }}
               />
             </StyledBadge>
           </div>
         )}
 
-        <div className={styles.compte}>
-         
-
+        {/* DROITE : compte | logo du service */}
+        <div className={`${styles.compte} ${styles.enter}`} style={{ "--d": "180ms" }}>
           {admin?.role === "admin" && (
             <AccountBadge
               styles={styles}
@@ -110,8 +110,8 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
               name={admin ? admin.nom : "..."}
               subtitle={admin ? admin.role : "..."}
               initialsName={admin ? admin.nom : ""}
-              width={47}
-              height={45}
+              width={44}
+              height={44}
             />
           )}
 
@@ -120,11 +120,11 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
               styles={styles}
               darkMode={darkMode}
               onClick={handleAvatarClick}
-              name={admin ? admin.responsable.nom : "..."}
+              name={admin?.responsable?.nom ? admin.responsable.nom.split(" ")[0] : "..."}
               subtitle={admin ? admin.role : "..."}
               imageSrc={`${API_URL}/uploads/${admin?.responsable?.image}`}
-              width={50}
-              height={47}
+              width={44}
+              height={44}
             />
           )}
 
@@ -145,21 +145,21 @@ const TopBar = ({ styles, admin, API_URL, isMobile, darkMode, toggleDarkMode, ha
                   : undefined
               }
               initialsName={admin?.personnel?.prenom || ""}
-              width={50}
-              height={47}
+              width={44}
+              height={44}
             />
           )}
 
-          <div className={styles.logo}>
+          <div className={styles.logo} title="Service">
             <img
               src={serviceLogo}
-              alt="Logo service"
+              alt="Logo du service"
               onError={(e) => (e.currentTarget.src = Logo)}
             />
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 };
 

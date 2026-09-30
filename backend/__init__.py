@@ -1,12 +1,11 @@
 from flask import Flask, request
-import eventlet
-eventlet.monkey_patch()
 from flask_cors import CORS
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_session import Session
 from flask_apscheduler import APScheduler
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 from models import db, Personnels
 from api.task import creer_pointages_vides
 from utils import face_utils
@@ -19,47 +18,64 @@ import redis
 
 load_dotenv()
 
-SOCKET_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+USE_HTTPS = os.getenv("USE_HTTPS", "false").lower() == "true"
 
-# Autoriser toutes les IP du réseau 192.168.88.* 10.4.111.55
+# ============================================================
+# Origines autorisées (http + https, avec ou sans port)
+# ============================================================
+SOCKET_ALLOWED_ORIGINS = []
+
+for host in ("localhost", "127.0.0.1"):
+    for scheme in ("http", "https"):
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://{host}")
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://{host}:5173")
+
 for i in range(1, 255):
-    SOCKET_ALLOWED_ORIGINS.append(f"http://10.4.111.{i}")
-    SOCKET_ALLOWED_ORIGINS.append(f"https://10.4.111.{i}")
+    for scheme in ("http", "https"):
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://192.168.88.{i}")
+        SOCKET_ALLOWED_ORIGINS.append(f"{scheme}://192.168.88.{i}:5173")
+
+CORS_ORIGINS = [
+    r"^https?://192\.168\.88\.[0-9]{1,3}(?::[0-9]+)?$",
+    r"^https?://127\.0\.0\.1(?::[0-9]+)?$",
+    r"^https?://localhost(?::[0-9]+)?$",
+]
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 
-# Message queue Redis : indispensable pour que les événements SocketIO
-# émis par une instance soient reçus par les clients connectés sur l'autre instance
 socketio = SocketIO(
     cors_allowed_origins=SOCKET_ALLOWED_ORIGINS,
-    async_mode="eventlet",
+    async_mode="threading",
     message_queue=REDIS_URL,
 )
 
-# Instances globales
 scheduler = APScheduler()
 migrate = Migrate()
 login_manager = LoginManager()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "devsecret123")
 
-# Active le scheduler uniquement sur l'instance désignée (voir .env de chaque serveur)
 ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "false").lower() == "true"
 
 
 def create_app():
     app = Flask(__name__)
 
-    # Config de base
+    # /api/types et /api/types/ acceptés sans redirection 308
+    app.url_map.strict_slashes = False
+
+    # Derrière Vite/nginx : Flask respecte X-Forwarded-Proto/Host (https conservé)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
+
     app.config.from_object('config.Config')
 
-    # --- Connexion Redis (créée AVANT la config des sessions car SESSION_REDIS en dépend) ---
+    # --- Redis (avant les sessions) ---
     redis_client = redis.from_url(
         REDIS_URL,
-        decode_responses=False
+        decode_responses=False,
+        socket_timeout=2,
+        socket_connect_timeout=2,
+        health_check_interval=30,
     )
 
     try:
@@ -70,7 +86,7 @@ def create_app():
 
     app.extensions["redis"] = redis_client
 
-    # --- Sessions partagées via Redis (au lieu de filesystem local) ---
+    # --- Sessions partagées via Redis ---
     app.config.update(
         SESSION_TYPE="redis",
         SESSION_REDIS=redis_client,
@@ -78,17 +94,19 @@ def create_app():
         SESSION_USE_SIGNER=True,
         SECRET_KEY=SECRET_KEY,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SECURE=False,
+        SESSION_COOKIE_SECURE=USE_HTTPS,
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(minutes=15),
         SESSION_REFRESH_EACH_REQUEST=True,
     )
 
-    # Initialisation extensions
     db.init_app(app)
 
     from utils.cache import register_cache_invalidation
     register_cache_invalidation(db)
+
+    from utils.pointage_context import register_context_invalidation
+    register_context_invalidation(db)
 
     migrate.init_app(app, db)
     socketio.init_app(app, message_queue=REDIS_URL)
@@ -97,25 +115,14 @@ def create_app():
 
     Session(app)
 
-    # CORS pour React
-    CORS(
-        app,
-        supports_credentials=True,
-        origins=[
-            r"^https?://10\.4\.111\.[0-9]{1,3}(?::[0-9]+)?$",
-            r"^http://127\.0\.0\.1:5173$",
-            r"^http://localhost:5173$",
-        ],
-    )
+    CORS(app, supports_credentials=True, origins=CORS_ORIGINS)
 
-    # Autoriser OPTIONS pour les requêtes préflight
     @app.before_request
     def bypass_options():
         if request.method == 'OPTIONS':
-            response = app.make_default_options_response()
-            return response
+            return app.make_default_options_response()
 
-    # --- Enregistrement des Blueprints (API) ---
+    # --- Blueprints ---
     from api.personnels_api import bp as personnels_bp
     app.register_blueprint(personnels_bp, url_prefix='/api/personnels')
 
@@ -161,18 +168,23 @@ def create_app():
     from api.create_service_horaire import bp as create_service_horaire_bp
     app.register_blueprint(create_service_horaire_bp, url_prefix='/api/services-horaires')
 
-    # --- Scheduler : uniquement sur l'instance qui a ENABLE_SCHEDULER=true ---
+    # --- Scheduler (une seule instance) ---
     if ENABLE_SCHEDULER:
         scheduler.init_app(app)
 
-        @scheduler.task('cron', id='check_absents_matin_task', hour=12, minute=43)
+        # Toutes les 15 min entre 12h et 14h : chaque service est traité
+        # dès que sa fenêtre de sortie matin est close.
+        @scheduler.task('cron', id='check_absents_matin_task',
+                        minute='*/15', hour='12-13')
         def scheduled_absence_check():
             with app.app_context():
                 from api.absence_checker import check_absents_matin
                 check_absents_matin()
                 print("[Scheduler] check_absents_matin() exécuté")
 
-        @scheduler.task('cron', id='check_absents_soir_task', hour=17, minute=30)
+        # Toutes les 15 min entre 17h et 19h : idem pour la sortie soir.
+        @scheduler.task('cron', id='check_absents_soir_task',
+                        minute='*/15', hour='17-18')
         def scheduled_absence_check_soir():
             with app.app_context():
                 from api.absence_checker import check_absents_soir
@@ -184,10 +196,10 @@ def create_app():
     else:
         print("⏸️ Scheduler désactivé sur cette instance (ENABLE_SCHEDULER=false)")
 
-    # --- Chargement embeddings pour la reconnaissance faciale ---
+    # --- Embeddings + synchronisation entre instances ---
     with app.app_context():
-        print("✅ Toutes les tables SQLAlchemy ont été créées si elles n'existaient pas !")
         face_utils.preload_embeddings_threadsafe()
 
+    face_utils.init_face_sync(app)
 
     return app

@@ -519,29 +519,34 @@ def delete_personnel(idpers):
     try:
         root_project = os.path.abspath(os.path.join(current_app.root_path, '..'))
 
-        # 🐛 Corrigé : POST et PUT écrivent dans face_db1, la suppression
-        # ciblait face_db — les images n'étaient jamais nettoyées.
         face_db_dir = os.path.join(root_project, 'face_db1')
         image_path = os.path.join(face_db_dir, f"{pers.idpers}.jpg")
         if os.path.exists(image_path):
             os.remove(image_path)
 
-        # Image dans uploads/
         if pers.image:
             upload_path = os.path.join(current_app.root_path, 'uploads', pers.image)
             if os.path.exists(upload_path):
                 os.remove(upload_path)
 
-        # Suppression du personnel (Oracle supprimera les pointages automatiquement)
+        # ✅ Diffuser la suppression AUX AUTRES INSTANCES via Pub/Sub.
+        # Doit être fait AVANT le commit (remove_embedding diffuse déjà) pour
+        # éviter que les autres workers valident un pointage dans la fenêtre
+        # entre le DELETE en base et la diffusion.
+        # remove_embedding renvoie False si l'entrée n'existe pas localement —
+        # ce n'est pas une erreur.
+        from utils.face_utils import remove_embedding
+        remove_embedding(idpers)
+
         db.session.delete(pers)
         db.session.commit()
 
-        # Recharger les embeddings mémoire
+        # Rechargement local pour rester cohérent avec la base
         load_embeddings()
         preload_embeddings_threadsafe()
 
-        with emb_lock:
-            PERSONNELS_EMB.pop(idpers, None)
+        # ⚠️ NE PAS remettre PERSONNELS_EMB.pop(idpers) : il ne fait rien
+        # et masque le vrai mécanisme de diffusion.
 
         socketio.emit("personnel_update")
 
@@ -550,3 +555,4 @@ def delete_personnel(idpers):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
+    

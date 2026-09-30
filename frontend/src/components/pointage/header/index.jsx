@@ -1,6 +1,6 @@
 import React from "react";
 import Drawer from "@mui/material/Drawer";
-import styles from "./header.module.css"; // ⚠️ même fichier CSS que l'original, inchangé
+import styles from "./header.module.css";
 
 import { useHeaderController } from "./useHeaderController";
 import TopBar from "./components/TopBar";
@@ -9,6 +9,10 @@ import MobileNav from "./components/MobileNav";
 import DrawerContent from "./components/DrawerContent";
 import SearchDialog from "./components/SearchDialog";
 import RoleSwitchMenu from "./components/RoleSwitchMenu";
+
+/* Courbes M3 : décélération marquée pour l'ouverture du drawer (sans dépassement) */
+const EMPHASIZED_DECEL = "cubic-bezier(0.05, 0.7, 0.1, 1)";
+const EMPHASIZED_ACCEL = "cubic-bezier(0.3, 0, 0.8, 0.15)";
 
 const Header = ({
   notifications,
@@ -44,7 +48,7 @@ const Header = ({
             handleAvatarClick={c.handleAvatarClick}
           />
 
-          {/* ⚠️ Le bandeau du DesktopNav garde toujours son dégradé, même en mode sombre : pas de classe darkNavbar ici */}
+          {/* Le bandeau du DesktopNav garde toujours son dégradé, même en mode sombre */}
           <div className={styles.navbar}>
             <DesktopNav
               styles={styles}
@@ -92,10 +96,15 @@ const Header = ({
         open={c.drawerOpen2}
         onClose={c.toggleDrawer}
         ModalProps={{ keepMounted: true }}
+        transitionDuration={{ enter: 450, exit: 220 }}
+        SlideProps={{
+          easing: { enter: EMPHASIZED_DECEL, exit: EMPHASIZED_ACCEL },
+        }}
         PaperProps={{
           sx: {
             backgroundColor: "#fff",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+            borderRadius: "28px 0 0 28px",
+            boxShadow: "0 10px 40px rgba(0,0,0,0.14)",
           },
         }}
         sx={{ zIndex: 20000 }}

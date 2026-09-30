@@ -10,6 +10,10 @@ export default defineConfig({
     // basicSsl() retiré : plus de HTTPS en dev
   ],
 
+  optimizeDeps: {
+    exclude: ["onnxruntime-web"],
+  },
+
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

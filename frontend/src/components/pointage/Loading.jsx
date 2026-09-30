@@ -1,51 +1,72 @@
-import React, { useEffect, useState } from 'react';
-import { LinearProgress, Box } from '@mui/material';
-import logo from '../../assets/logo1.png'; // ⚡ Remplace par le chemin réel de ton logo
-import styles from "./loading.module.css"
+import React, { useEffect, useRef, useState } from "react";
+import logo from "../../assets/logo1.png";
+import styles from "./loading.module.css";
+
+const DURATION = 2000; // durée du chargement (ms)
+const EXIT = 450; // durée du fondu de sortie (ms)
+
+// Ralentit en fin de course pour une progression plus naturelle
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
 const Loading = ({ onFinish }) => {
   const [progress, setProgress] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  const finishRef = useRef(onFinish);
 
-useEffect(() => {
-  const duration = 2000; // 👈 2 secondes
-  const interval = 50;   // mise à jour toutes les 50ms
-  const increment = 100 / (duration / interval);
+  useEffect(() => {
+    finishRef.current = onFinish;
+  }, [onFinish]);
 
-  const timer = setInterval(() => {
-    setProgress((prev) => {
-      const next = Math.min(prev + increment, 100);
-      if (next === 100) {
-        clearInterval(timer);
-        if (onFinish) onFinish();
-      }
-      return next;
-    });
-  }, interval);
+  // Progression fluide avec requestAnimationFrame
+  useEffect(() => {
+    const start = performance.now();
+    let raf;
 
-  return () => clearInterval(timer);
-}, [onFinish]);
+    const tick = (now) => {
+      const t = Math.min((now - start) / DURATION, 1);
+      setProgress(easeOutCubic(t) * 100);
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // À 100 % : fondu de sortie, puis onFinish
+  useEffect(() => {
+    if (progress < 100) return;
+    setLeaving(true);
+    const t = setTimeout(() => finishRef.current?.(), EXIT);
+    return () => clearTimeout(t);
+  }, [progress]);
+
+  const pct = Math.round(progress);
 
   return (
-    <div
-    className={styles.contents}
-    >
-<div className={styles.card}>
+    <div className={`${styles.screen} ${leaving ? styles.leave : ""}`}>
+      <div className={styles.card}>
+        <div className={styles.logoWrap}>
+          <span className={styles.blob} aria-hidden="true" />
+          <span className={styles.blob2} aria-hidden="true" />
+          <img src={logo} alt="Logo" className={styles.logo} />
+        </div>
 
-  <div className={styles.images}>
-        <img src={logo} alt="" />
-    </div>
+        <div className={styles.progressBlock}>
+          <div
+            className={styles.progress}
+            role="progressbar"
+            aria-label="Chargement"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+          >
+           
+          </div>
 
-      {/* Barre de progression */}
-      <div className={styles.loading}>
-      {/* <span className={styles.loader}></span>*/}
-      
+       
+        </div>
       </div>
-
-
-</div>
-
-     
-       </div>
+    </div>
   );
 };
 

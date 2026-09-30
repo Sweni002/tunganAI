@@ -4,7 +4,51 @@ import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
+import { keyframes } from "@mui/material/styles";
 import { rotate } from "../Header.styles";
+
+/* ================= TOKENS M3 EXPRESSIVE ================= */
+
+const SPRING_FAST = "cubic-bezier(0.42, 1.67, 0.21, 0.9)";
+const SPRING_DEFAULT = "cubic-bezier(0.38, 1.21, 0.22, 1)";
+const EFFECTS = "cubic-bezier(0.34, 0.8, 0.34, 1)";
+
+const itemIn = keyframes`
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+`;
+
+/* Option du menu : entrée échelonnée, couche de survol, icône et chevron animés */
+const m3ItemSx = (index, { danger = false, ...extra } = {}) => ({
+  borderRadius: "16px",
+  animation: `${itemIn} 450ms ${SPRING_DEFAULT} both`,
+  animationDelay: `${index * 50}ms`,
+  transition: `background-color 200ms ${EFFECTS}, border-radius 400ms ${SPRING_FAST}, transform 400ms ${SPRING_FAST}`,
+  "& .m3-icon": {
+    transition: `border-radius 450ms ${SPRING_FAST}, transform 450ms ${SPRING_FAST}`,
+  },
+  "& .m3-chevron": {
+    transition: `transform 400ms ${SPRING_FAST}`,
+  },
+  "&:hover": {
+    backgroundColor: danger ? "rgba(186, 26, 26, 0.08)" : "rgba(0, 196, 204, 0.1)",
+    "& .m3-icon": {
+      borderRadius: "12px",
+      transform: "rotate(-8deg) scale(1.08)",
+    },
+    "& .m3-chevron": { transform: "translateX(4px)" },
+    ...(danger && { "& .m3-label": { color: "#ba1a1a" } }),
+  },
+  "&:active": {
+    borderRadius: "12px",
+    transform: "scale(0.98)",
+  },
+  "@media (prefers-reduced-motion: reduce)": {
+    animation: "none",
+    transition: "none",
+  },
+  ...extra,
+});
 
 const RoleSwitchMenu = ({
   isMobile,
@@ -17,6 +61,24 @@ const RoleSwitchMenu = ({
 }) => {
   const otherRoles = getOtherRoles();
 
+  const actionIconSx = {
+    width: isMobile ? 29 : 34,
+    height: isMobile ? 30 : 35,
+    borderRadius: "60%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundImage: "linear-gradient(90deg,#00c4cc,#8b69b8)",
+  };
+
+  const actionTextStyle = {
+    display: "flex",
+    alignItems: "center",
+    color: "black",
+    fontSize: isMobile ? "0.78rem" : "0.9rem",
+    fontFamily: "'Poppins', sans-serif",
+  };
+
   return (
     <Menu
       anchorEl={menuAnchorEl}
@@ -24,23 +86,27 @@ const RoleSwitchMenu = ({
       onClose={handleMenuClose}
       anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       transformOrigin={{ vertical: "top", horizontal: "left" }}
+      transitionDuration={{ enter: 420, exit: 160 }}
+      TransitionProps={{
+        easing: { enter: SPRING_DEFAULT, exit: EFFECTS },
+      }}
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: "28px",
           mt: 1,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          boxShadow: "0 12px 32px rgba(0,0,0,0.16)",
           width: isMobile ? 260 : 335,
-          px: isMobile ? 2 : 3,
-          py: isMobile ? 1 : 3,
+          px: isMobile ? 1.5 : 2,
+          py: isMobile ? 1 : 2,
         },
       }}
     >
-      {/* Dynamique : affiche tous les rôles sauf le rôle actuel */}
+      {/* Tous les rôles sauf le rôle actuel */}
       {otherRoles.map((role, index) => (
         <React.Fragment key={role}>
           <MenuItem
             onClick={() => handleSwitchRole(role)}
-            sx={{ px: 2, py: 0, mb: 1.5, borderRadius: 2 }}
+            sx={m3ItemSx(index, { px: 2, py: 0.5, mb: 1 })}
           >
             <div
               style={{
@@ -66,7 +132,6 @@ const RoleSwitchMenu = ({
                   }}
                 >
                   <Box
-                    className="arrows-container"
                     sx={{
                       position: "absolute",
                       inset: 0,
@@ -108,6 +173,7 @@ const RoleSwitchMenu = ({
                   </Box>
 
                   <Avatar
+                    className="m3-icon"
                     sx={{
                       width: 29,
                       height: 29,
@@ -126,86 +192,56 @@ const RoleSwitchMenu = ({
                   </Avatar>
                 </Box>
 
-                <span style={{ fontWeight: 500 }}>
+                <span style={{ fontWeight: 600 }}>
                   {role.charAt(0).toUpperCase() + role.slice(1)}
                 </span>
               </div>
 
-              <i className="fa-solid fa-chevron-right" style={{ fontSize: "0.9rem" }} />
+              <i
+                className="fa-solid fa-chevron-right m3-chevron"
+                style={{ fontSize: "0.9rem" }}
+              />
             </div>
           </MenuItem>
           {index < otherRoles.length - 1 && (
-            <Divider sx={{ borderColor: "rgba(0,0,0,0.15)", my: 0.5, mx: 1 }} />
+            <Divider sx={{ borderColor: "rgba(0,0,0,0.12)", my: 0.5, mx: 1 }} />
           )}
         </React.Fragment>
       ))}
 
-      <Divider sx={{ my: 0.5, borderColor: "rgba(0,0,0,0.15)", mx: 1 }} />
+      <Divider sx={{ my: 0.5, borderColor: "rgba(0,0,0,0.12)", mx: 1 }} />
 
       {/* Changer mot de passe */}
       <MenuItem
         onClick={() => navigate("/change-password")}
-        sx={{ px: isMobile ? 1 : 1, py: isMobile ? 0 : 1.5, borderRadius: 2 }}
+        sx={m3ItemSx(otherRoles.length, { px: 1, py: isMobile ? 0.5 : 1.5 })}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: isMobile ? 10 : 15,
-            color: "black",
-            fontSize: isMobile ? "0.78rem" : "0.9rem",
-            fontFamily: "'Poppins', sans-serif",
-          }}
-        >
-          <Box
-            sx={{
-              width: isMobile ? 29 : 34,
-              height: isMobile ? 30 : 35,
-              borderRadius: "60%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundImage: "linear-gradient(90deg,#00c4cc,#8b69b8)",
-            }}
-          >
+        <div style={{ ...actionTextStyle, gap: isMobile ? 10 : 15 }}>
+          <Box className="m3-icon" sx={actionIconSx}>
             <i
               className="fa-solid fa-lock"
               style={{ color: "white", fontSize: isMobile ? "0.78rem" : "0.9rem" }}
             />
           </Box>
-          <span>Changer le mot de passe</span>
+          <span className="m3-label">Changer le mot de passe</span>
         </div>
       </MenuItem>
 
       {/* Déconnexion */}
-      <MenuItem onClick={handleLogout} sx={{ px: 1, py: 1.5, borderRadius: 2 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: isMobile ? 12 : 13,
-            color: "black",
-            fontSize: isMobile ? "0.78rem" : "0.9rem",
-            fontFamily: "'Poppins', sans-serif",
-          }}
-        >
-          <Box
-            sx={{
-              width: isMobile ? 29 : 34,
-              height: isMobile ? 30 : 35,
-              borderRadius: "60%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundImage: "linear-gradient(90deg,#00c4cc,#8b69b8)",
-            }}
-          >
+      <MenuItem
+        onClick={handleLogout}
+        sx={m3ItemSx(otherRoles.length + 1, { danger: true, px: 1, py: 1.5 })}
+      >
+        <div style={{ ...actionTextStyle, gap: isMobile ? 12 : 13 }}>
+          <Box className="m3-icon" sx={actionIconSx}>
             <i
               className="fa-solid fa-right-from-bracket"
               style={{ color: "white", fontSize: isMobile ? "0.78rem" : "0.9rem" }}
             ></i>
           </Box>
-          <span>Se déconnecter</span>
+          <span className="m3-label" style={{ transition: "color 200ms" }}>
+            Se déconnecter
+          </span>
         </div>
       </MenuItem>
     </Menu>
