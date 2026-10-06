@@ -92,16 +92,17 @@ def facial_client_history():
     # ==========================================
 
     entries = (
-        JournalTentativePointage.query
-        .filter_by(
-            mac_address=mac_address
-        )
-        .order_by(
-            JournalTentativePointage.created_at.desc()
-        )
-        .limit(15)
-        .all()
+    JournalTentativePointage.query
+    .filter_by(
+        mac_address=mac_address,
+        statut=StatutPointage.SUCCES,                 # ← ajout
+        etape=EtapePointage.ENREGISTREMENT,           # ← ajout
     )
+    .order_by(JournalTentativePointage.created_at.desc())
+    .limit(15)
+    .all()
+)
+
 
     def build_status(entry):
 
