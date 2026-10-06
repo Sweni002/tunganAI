@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file
-from sqlalchemy import extract, DateTime, Date
+from sqlalchemy import extract, DateTime, Date, func, or_
 from sqlalchemy.orm import joinedload
 from models import db, TypeAutorisations, Responsables, Services
 from models.pointages import Pointage
@@ -357,6 +357,63 @@ def _tri_matricule_numerique(p):
     return int(p.matricule) if p.matricule and p.matricule.isdigit() else float("inf")
 
 
+
+# ===========================================================================
+# PAGINATION / RECHERCHE SERVEUR (optionnelles : sans ?page, tout est renvoyé)
+# ===========================================================================
+
+_PER_PAGE_MAX = 100
+
+
+def lire_pagination():
+    """Retourne (page, per_page, q). page vaut None si la pagination n'est pas demandée."""
+    page = request.args.get("page", type=int)
+    per_page = request.args.get("per_page", default=10, type=int)
+    per_page = max(1, min(per_page or 10, _PER_PAGE_MAX))
+    q = (request.args.get("q") or "").strip()
+    return (max(page, 1) if page else None), per_page, q
+
+
+def filtrer_recherche(query, q):
+    """Filtre insensible à la casse sur matricule, nom ou prénom."""
+    if not q:
+        return query
+    motif = f"%{q.lower()}%"
+    return query.filter(
+        or_(
+            func.lower(Personnels.matricule).like(motif),
+            func.lower(Personnels.nom).like(motif),
+            func.lower(Personnels.prenom).like(motif),
+        )
+    )
+
+
+def page_de_personnels(query, page, per_page):
+    """Pagine sans charger les pointages de tout le monde.
+
+    1) on ne lit que (idpers, matricule) de tous les résultats : requête légère,
+       nécessaire pour garder le tri numérique par matricule ;
+    2) on ne charge les entités complètes que pour la page demandée.
+    Retourne (personnels_de_la_page, total).
+    """
+    lignes = query.with_entities(Personnels.idpers, Personnels.matricule).all()
+    lignes.sort(
+        key=lambda r: int(r.matricule) if r.matricule and r.matricule.isdigit() else float("inf")
+    )
+    total = len(lignes)
+    debut = (page - 1) * per_page
+    ids = [r.idpers for r in lignes[debut:debut + per_page]]
+    if not ids:
+        return [], total
+
+    charges = (
+        Personnels.query.options(joinedload(Personnels.division))
+        .filter(Personnels.idpers.in_(ids))
+        .all()
+    )
+    par_id = {p.idpers: p for p in charges}
+    return [par_id[i] for i in ids if i in par_id], total
+
 # ===========================================================================
 # EXPORTS EXCEL — non cachés (send_file), mais préchargés
 # ===========================================================================
@@ -540,14 +597,25 @@ def fiche_assiduite_json():
     if not mois or not annee:
         return jsonify({"error": "Paramètres 'mois' et 'annee' requis."}), 400
 
-    query = Personnels.query.options(joinedload(Personnels.division))
+    page, per_page, q = lire_pagination()
+
+    query = Personnels.query
 
     if idserv is not None:
         query = query.join(Responsables, Personnels.idrh == Responsables.idrh).filter(
             Responsables.idserv == idserv
         )
 
-    personnels = sorted(query.all(), key=_tri_matricule_numerique)
+    query = filtrer_recherche(query, q)
+
+    total = None
+    if page:
+        personnels, total = page_de_personnels(query, page, per_page)
+    else:
+        personnels = sorted(
+            query.options(joinedload(Personnels.division)).all(),
+            key=_tri_matricule_numerique,
+        )
 
     autorisations_par_pers, pointages_par_pers = precharger_donnees_mois(
         [p.idpers for p in personnels], mois, annee
@@ -563,7 +631,83 @@ def fiche_assiduite_json():
         for pers in personnels
     ]
 
-    return jsonify({"mois": mois, "annee": annee, "data": result})
+    reponse = {"mois": mois, "annee": annee, "data": result}
+    if page:
+        reponse.update({"page": page, "per_page": per_page, "total": total})
+    return jsonify(reponse)
+
+
+@bp.route("/resume", methods=["GET"])
+@cached_assiduite
+def fiche_assiduite_resume():
+    """Totaux du mois sur TOUS les agents correspondant aux filtres.
+
+    Paramètres : mois, annee (requis) ; idserv, iddiv, q (optionnels, mêmes
+    règles que /all et /by_division). Ne renvoie que des totaux : aucune fiche
+    individuelle n'est construite, et les pointages sont lus par lots.
+    """
+    mois = request.args.get("mois", type=int)
+    annee = request.args.get("annee", type=int)
+    idserv = request.args.get("idserv", type=int)
+    iddiv = request.args.get("iddiv", type=int)
+    q = (request.args.get("q") or "").strip()
+
+    if not mois or not annee or not (1 <= mois <= 12):
+        return jsonify({"error": "Paramètres 'mois' et 'annee' requis."}), 400
+
+    query = Personnels.query
+    if iddiv:
+        query = query.filter(Personnels.iddiv == iddiv)
+    if idserv is not None:
+        query = query.join(Responsables, Personnels.idrh == Responsables.idrh).filter(
+            Responsables.idserv == idserv
+        )
+    query = filtrer_recherche(query, q)
+
+    personnels = query.with_entities(Personnels.idpers, Personnels.role).all()
+    roles = {p.idpers: p.role for p in personnels}
+
+    retards_nombre = 0
+    retards_minutes = 0
+    non_justifiees = 0
+    justifiees = 0
+    absences_par_type = defaultdict(float)
+
+    # Lots : borne la mémoire et respecte la limite de 1000 éléments d'un IN Oracle
+    for lot in _lots(list(roles)):
+        autorisations_par_pers, pointages_par_pers = precharger_donnees_mois(
+            lot, mois, annee
+        )
+        for idpers in lot:
+            pointages = pointages_par_pers.get(idpers, [])
+            autorisations = autorisations_par_pers.get(idpers, [])
+
+            retards, minutes = calculer_retards(pointages)
+            retards_nombre += retards["nombre"]
+            retards_minutes += minutes
+
+            absences = calculer_absences(pointages, roles[idpers])
+            non_justifiees += absences["non_justifiees"]["nombre"]
+
+            for t in calculer_absences_par_type(autorisations):
+                justifiees += t["nombre"]
+                absences_par_type[t["idtype"]] += t["nombre"]
+
+    return jsonify({
+        "mois": mois,
+        "annee": annee,
+        "agents": len(roles),
+        "retards": {
+            "nombre": retards_nombre,
+            "total_minutes": retards_minutes,
+            "total_hms": format_minutes_to_hms(retards_minutes),
+        },
+        "absences_non_justifiees": non_justifiees,
+        "absences_justifiees": justifiees,
+        "absences_par_type": [
+            {"idtype": k, "nombre": v} for k, v in sorted(absences_par_type.items())
+        ],
+    })
 
 
 @bp.route("/all_personnel", methods=["GET"])
@@ -657,7 +801,9 @@ def fiche_assiduite_par_division():
     date_debut_mois = date(annee, mois, 1)
     date_fin_mois = date(annee, mois, monthrange(annee, mois)[1])
 
-    query = Personnels.query.options(joinedload(Personnels.division))
+    page, per_page, q = lire_pagination()
+
+    query = Personnels.query
 
     if iddiv:
         query = query.filter(Personnels.iddiv == iddiv)
@@ -667,10 +813,17 @@ def fiche_assiduite_par_division():
             Responsables.idserv == idserv
         )
 
-    personnels = sorted(
-        query.all(),
-        key=lambda p: p.division.nom if p.division else "",
-    )
+    query = filtrer_recherche(query, q)
+
+    total = None
+    if page:
+        # Page triée par matricule (une division = un seul groupe)
+        personnels, total = page_de_personnels(query, page, per_page)
+    else:
+        personnels = sorted(
+            query.options(joinedload(Personnels.division)).all(),
+            key=lambda p: p.division.nom if p.division else "",
+        )
 
     ids = [p.idpers for p in personnels]
     autorisations_par_pers, pointages_par_pers = precharger_donnees_mois(
@@ -693,13 +846,16 @@ def fiche_assiduite_par_division():
             )
         )
 
-    return jsonify({
+    reponse = {
         "mois": mois,
         "annee": annee,
         "iddiv_filtre": iddiv,
         "idserv_filtre": idserv,
         "data": result,
-    })
+    }
+    if page:
+        reponse.update({"page": page, "per_page": per_page, "total": total})
+    return jsonify(reponse)
 
 
 @bp.route('/personnel', methods=['GET'])

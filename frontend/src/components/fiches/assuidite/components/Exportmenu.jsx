@@ -1,8 +1,7 @@
 import React from "react";
-import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { Tooltip, Spin } from "antd";
+import { Spin } from "antd";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import styles from "../assiduite.module.css";
 
@@ -16,25 +15,17 @@ const ExportMenu = ({
 }) => {
   return (
     <>
-      <Tooltip title="Exporter en Excel" arrow>
-        <div className={styles.pdf} aria-label="Exporter en Excel">
-          <IconButton
-            size="medium"
-            onClick={handleClick3}
-            disabled={loadingPdf1}
-            sx={{ gap: 0.7 }}
-          >
-            {loadingPdf1 ? (
-              <Spin size="default" />
-            ) : (
-              <>
-                <i className="fa-solid fa-download"></i>
-                <ArrowDropDownIcon fontSize="small" />
-              </>
-            )}
-          </IconButton>
-        </div>
-      </Tooltip>
+      <button
+        type="button"
+        className={styles.exportBtn}
+        onClick={handleClick3}
+        disabled={loadingPdf1}
+        aria-label="Exporter en Excel"
+      >
+        {loadingPdf1 ? <Spin size="small" /> : <i className="fa-solid fa-download" aria-hidden="true"></i>}
+        Exporter
+        <ArrowDropDownIcon fontSize="small" />
+      </button>
 
       <Menu
         anchorEl={anchorEl3}

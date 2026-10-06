@@ -15,6 +15,7 @@ import {
   CalendarBlankIcon,
   ScrollIcon,
   UserGearIcon,
+  SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { menuItemStyle, textStyle, subItemStyle, subTextStyle } from "../Header.styles";
 import { stringAvatar } from "../Header.utils";
@@ -23,6 +24,7 @@ const DrawerContent = ({
   admin,
   API_URL,
   // responsable
+  openDashboard,
   openPerso,
   toggleCertif,
   openCertif,
@@ -142,6 +144,19 @@ const DrawerContent = ({
         ) : (
           <>
             {/* -------- MENU RESPONSABLE -------- */}
+            <ListItemButton
+              onClick={() => {
+                openDashboard();
+                toggleDrawer();
+              }}
+              sx={menuItemStyle}
+            >
+              <SquaresFourIcon size={18} weight="regular" style={{ marginRight: 10 }} />
+              <ListItemText primary="DASHBOARD" primaryTypographyProps={textStyle} />
+            </ListItemButton>
+
+            <Divider sx={{ my: 1 }} />
+
             <ListItemButton
               onClick={() => {
                 openPerso();

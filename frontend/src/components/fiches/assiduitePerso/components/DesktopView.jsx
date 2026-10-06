@@ -1,68 +1,84 @@
 import React from "react";
-import Box from "@mui/material/Box";
 import styles from "../assiduite.module.css";
 import PageHeader from "../../../content/autorisations_absences/components/PageHeader";
 
+import DashboardHero from "./DashboardHero";
 import MonthFilter from "../components/MonthFilter";
-import ExportButton from "../components/ExportButton";
-import SearchBox from "../components/SearchBox";
+import { Spin } from "antd";
+import dayjs from "dayjs";
 import AssuiditePersoTable from "../components/AssuiditePersoTable";
 
 const DesktopView = ({ c, columns }) => {
+  // Passe au mois précédent / suivant en gardant le même format que MonthFilter
+  const shiftMonth = (delta) => {
+    const d = dayjs(c.selectedDate).add(delta, "month");
+    const month = d.format("MM");
+    c.setMoisAll(month);
+    c.setAnneeAll(d.year());
+    c.setSelectedDate(`${d.year()}-${month}-01`);
+  };
+
   return (
     <div style={{
       width: "100%",
-      margin: "0 auto"
+      margin: "0 auto",
+      display: "flex",
+      flexDirection: "column",
+      gap: 24,
     }}>
       <PageHeader
         title="Fiche d'assiduité personnel"
         subtitle="Suivi des retards et de l'assiduité du personnel"
       />
 
-      <div className={styles.cardTab} style={{ border: "none" }}>
-        <div className={styles.searchBar}>
-          <Box
-            sx={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              paddingLeft: "10px",
-              gap: 12,
-              "@media (max-width:768px)": {
-                width: "100%",
-                flexWrap: "wrap",
-                justifyContent: "center",
-                gap: "10px",
-                paddingLeft: 0,
-              },
-              "@media (max-width:480px)": {
-                marginTop: "10px",
-                width: "100% !important",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: "10px",
-                paddingLeft: 0,
-              },
-            }}
+      {/* Barre de filtrage : navigation par mois à gauche, export à droite */}
+      <div className={styles.topBar}>
+        <div className={styles.monthNav} role="group" aria-label="Choisir le mois">
+          <button
+            type="button"
+            className={styles.navBtn}
+            onClick={() => shiftMonth(-1)}
+            aria-label="Mois précédent"
           >
-            <MonthFilter
-              anchorRef={c.anchorRef}
-              open1={c.open1}
-              setOpen={c.setOpen}
-              selectedDate={c.selectedDate}
-              setSelectedDate={c.setSelectedDate}
-              setMoisAll={c.setMoisAll}
-              setAnneeAll={c.setAnneeAll}
-            />
-            <ExportButton loadingPdf1={c.loadingPdf1} exportExcel={c.exportExcel} />
-          </Box>
-
-          <SearchBox searchText={c.searchText} setSearchText={c.setSearchText} />
+            <i className="fa-solid fa-chevron-left" aria-hidden="true"></i>
+          </button>
+          <MonthFilter
+            anchorRef={c.anchorRef}
+            open1={c.open1}
+            setOpen={c.setOpen}
+            selectedDate={c.selectedDate}
+            setSelectedDate={c.setSelectedDate}
+            setMoisAll={c.setMoisAll}
+            setAnneeAll={c.setAnneeAll}
+          />
+          <button
+            type="button"
+            className={styles.navBtn}
+            onClick={() => shiftMonth(1)}
+            aria-label="Mois suivant"
+          >
+            <i className="fa-solid fa-chevron-right" aria-hidden="true"></i>
+          </button>
         </div>
 
+        <button
+          type="button"
+          className={styles.exportBtn}
+          onClick={c.exportExcel}
+          disabled={c.loadingPdf1}
+        >
+          {c.loadingPdf1 ? <Spin size="small" /> : <i className="fa-solid fa-download" aria-hidden="true"></i>}
+          Exporter
+        </button>
+      </div>
+
+      <DashboardHero c={c} />
+
+      <div className={styles.cardTab} style={{ border: "none" }}>
+        <div className={styles.sectionHead}>
+          <h3>Détail du mois</h3>
+          <p>Retards et absences, par type</p>
+        </div>
         <div className={`${styles.tableau} ${styles.shadowedTable}`}>
           <AssuiditePersoTable
             loading={c.loading}

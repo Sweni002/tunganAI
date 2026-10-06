@@ -168,6 +168,9 @@ def create_app():
     from api.create_service_horaire import bp as create_service_horaire_bp
     app.register_blueprint(create_service_horaire_bp, url_prefix='/api/services-horaires')
 
+    from api.dashboard_api import bp as dashboard_bp
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+
     # --- Scheduler (une seule instance) ---
     if ENABLE_SCHEDULER:
         scheduler.init_app(app)

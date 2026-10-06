@@ -70,6 +70,7 @@ const Header = ({
               openPerso={c.openPerso}
               openConge={c.openConge}
               openAutorisaion={c.openAutorisaion}
+              openDashboard={c.openDashboard}
               openPresences={c.openPresences}
               openAssd={c.openAssd}
             />
@@ -117,6 +118,7 @@ const Header = ({
           openCertif={c.openCertif}
           openConge={c.openConge}
           openAutorisaion={c.openAutorisaion}
+          openDashboard={c.openDashboard}
           openPresences={c.openPresences}
           openAssd={c.openAssd}
           openInfo={c.openInfo}

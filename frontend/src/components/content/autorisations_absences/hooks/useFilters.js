@@ -1,8 +1,7 @@
 import { useState } from "react";
 import dayjs from "dayjs";
-import { autorisationService } from "../services/autorisationService";
 
-export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSnack) => {
+export const useFilters = (applyFilters, setSnackMessage, setSnackError, setOpenSnack) => {
   const [dateDebutFiltre, setDateDebutFiltre] = useState("");
   const [dateFinFiltre, setDateFinFiltre] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -25,56 +24,26 @@ export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSna
       return;
     }
 
-    try {
-      const startIso = dayjs(dateDebutFiltre).format("YYYY-MM-DD");
-      const endIso = dayjs(dateFinFiltre).format("YYYY-MM-DD");
-      
-      const res = await autorisationService.getAutorisationsBetweenDates(
-        idserv,
-        startIso,
-        endIso
-      );
-      
-      const count = Array.isArray(res) ? res.length : 0;
-      setSnackMessage(`${count} autorisation${count > 1 ? "s" : ""} trouvée${count > 1 ? "s" : ""}`);
-      setSnackError(false);
-      setOpenSnack(true);
-      setConges(res);
-    } catch (err) {
-      setSnackMessage(err.message);
-      setSnackError(true);
-      setOpenSnack(true);
-    }
+    // Le serveur filtre et pagine : on se contente de transmettre la plage
+    setSelectedDate("");
+    applyFilters({
+      start: dayjs(dateDebutFiltre).format("YYYY-MM-DD"),
+      end: dayjs(dateFinFiltre).format("YYYY-MM-DD"),
+    });
   };
 
-  const handleResetFiltre = async (idserv) => {
+  const handleResetFiltre = async () => {
     setDateDebutFiltre("");
     setDateFinFiltre("");
-    try {
-      const data = await autorisationService.getAutorisations(idserv);
-      setConges(data);
-    } catch (err) {
-      setSnackMessage(err.message);
-      setSnackError(true);
-      setOpenSnack(true);
-    }
+    setSelectedDate("");
+    applyFilters({});
   };
 
   const handleFiltrerParDateUnique = async (date) => {
     if (!date) return;
-    
-    try {
-      const data = await autorisationService.getAutorisationsByDate(date);
-      const count = Array.isArray(data) ? data.length : 0;
-      setSnackMessage(`${count} autorisation${count > 1 ? "s" : ""} trouvée${count > 1 ? "s" : ""}`);
-      setSnackError(false);
-      setOpenSnack(true);
-      setConges(data);
-    } catch (err) {
-      setSnackMessage(err.message);
-      setSnackError(true);
-      setOpenSnack(true);
-    }
+    setDateDebutFiltre("");
+    setDateFinFiltre("");
+    applyFilters({ date: dayjs(date).format("YYYY-MM-DD") });
   };
 
   const handleOpenDatePicker = (type) => (event) => {

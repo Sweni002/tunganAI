@@ -747,3 +747,162 @@ letter-spacing: 0.4px;
   color: #8c8c8c;
   font-weight: 700;
 }
+
+/* ===== Material 3 Expressive : respiration, formes, mouvement ===== */
+.personnels {
+  --m3-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --m3-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  gap: 24px;
+  margin-top: 16px;
+  padding-bottom: 32px;
+}
+
+/* Les sections entrent avec un léger décalage ressort */
+.personnels > * {
+  animation: m3Enter 500ms var(--m3-spring) both;
+}
+.personnels > *:nth-child(2) { animation-delay: 40ms; }
+.personnels > *:nth-child(3) { animation-delay: 80ms; }
+.personnels > *:nth-child(4) { animation-delay: 120ms; }
+.personnels > *:nth-child(5) { animation-delay: 160ms; }
+.personnels > *:nth-child(6) { animation-delay: 200ms; }
+
+@keyframes m3Enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cardTab {
+  margin-top: 0;
+  padding: 20px 24px;
+  gap: 16px;
+  border: none;
+  border-radius: 28px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 300ms var(--m3-emphasized);
+}
+.cardTab:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.tableau {
+  margin-top: 0;
+}
+
+.shadowedTable {
+  border-radius: 24px;
+  padding: 20px;
+  background-color: #fafbfc;
+  animation: m3Enter 600ms var(--m3-spring) both;
+}
+
+/* Boutons / puces : forme pilule + retour tactile élastique */
+.personnels button {
+  transition: transform 250ms var(--m3-spring), background-color 200ms var(--m3-emphasized),
+    box-shadow 200ms var(--m3-emphasized);
+}
+.personnels button:hover { transform: translateY(-1px); }
+.personnels button:active { transform: scale(0.95); }
+
+@media (prefers-reduced-motion: reduce) {
+  .personnels > *, .shadowedTable { animation: none; }
+  .personnels button { transition: none; }
+}
+
+/* ===== Carte "Filtres" (divisions + période) ===== */
+.filtresCard {
+  width: 100%;
+  max-width: 1700px;
+  background: #fff;
+  border-radius: 28px;
+  padding: 16px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+.filtresHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.filtresTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1b6979;
+  font-family: 'Poppins', system-ui, sans-serif;
+}
+.filtresDivider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 12px 0 4px;
+}
+/* les enfants gardaient leurs propres marges : on les neutralise dans la carte */
+.filtresCard .scrollContainer,
+.filtresCard .cardDivision,
+.filtresCard .filtreContainer {
+  margin-top: 0;
+  margin-bottom: 0;
+  max-width: 100%;
+  animation: none;
+}
+.filtresCard .cardDivision { padding: 0; }
+.filtresCard .filtreGroup { max-width: 100%; }
+
+/* Plus d'air entre les éléments de la carte Filtres */
+.filtresCard {
+  gap: 20px;
+  padding: 24px 32px 28px;
+}
+.filtresDivider { margin: 24px 0 8px; }
+.filtresCard .scrollBtns { gap: 24px; padding: 6px 4px; }
+.filtresCard .filtreGroup { gap: 32px; row-gap: 24px; }
+.filtresCard .champ { gap: 14px; }
+
+/* ===== Pagination ===== */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 24px auto 8px;
+  padding: 8px;
+  width: fit-content;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 14px rgba(0, 0, 0, 0.06);
+  font-family: 'Poppins', system-ui, sans-serif;
+}
+.pagerPage {
+  min-width: 90px;
+  padding: 8px 18px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1b6979;
+  background: #e3f1f4;
+  border-radius: 999px;
+}
+.pager .pagerBtn {
+  height: 40px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  border: none;
+  background: #f1f4f5;
+  color: #1f2d30;
+  border-radius: 999px;
+  box-shadow: none;
+}
+.pager .pagerBtn:not(:disabled):hover { background: #e3eaec; color: #1b6979; }
+.pager .pagerBtnPrimary:not(:disabled) { background: #1b6979; color: #fff; }
+.pager .pagerBtnPrimary:not(:disabled):hover { background: #155260; color: #fff; }
+.pager .pagerBtn:disabled { background: #f6f7f8; color: #b4bcbe; cursor: not-allowed; }

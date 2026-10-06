@@ -7,32 +7,102 @@ from __init__ import socketio
 bp = Blueprint('autorisation_api', __name__)
 
 
+_PER_PAGE_MAX = 100
+
+
+def _personnels_du_service(idserv):
+    """Sous-requête : idpers des agents des divisions du service (évite de charger les ids en mémoire)."""
+    from sqlalchemy import select
+    from models import Divisions
+
+    divisions_du_service = select(Divisions.iddiv).where(Divisions.idserv == idserv)
+    return select(Personnels.idpers).where(Personnels.iddiv.in_(divisions_du_service))
+
+
+def _parse_date_ou_none(valeur):
+    return datetime.strptime(valeur, "%Y-%m-%d").date() if valeur else None
+
+
 @bp.route("/<int:idserv>", methods=["GET"])
 def get_autorisations_by_service(idserv):
-    from models import AutorisationAbsence, Personnels, Divisions, Services
+    """Autorisations d'un service.
 
-    # Vérifier que le service existe
-    service = Services.query.get(idserv)
-    if not service:
+    Sans paramètre : toute la liste (comportement historique).
+    Paramètres optionnels, combinables :
+      - page, per_page : pagination serveur (per_page <= 100) ; ajoute total/page/per_page
+      - q              : recherche matricule / nom / prénom / motif
+      - date           : un jour précis (YYYY-MM-DD)
+      - start, end     : plage de dates (YYYY-MM-DD)
+    Avec `page`, la réponse est un objet {"data": [...], "total": n, ...} ;
+    sans `page`, c'est une liste, comme avant.
+    """
+    from sqlalchemy import func, or_
+    from sqlalchemy.orm import joinedload
+    from models import Services
+
+    if not Services.query.get(idserv):
         return jsonify({"error": "Service non trouvé"}), 404
 
-    # Récupérer toutes les divisions du service
-    divisions_ids = [
-        d.iddiv for d in service.divisions
-    ]  # Assumes Services a "divisions" relation
+    try:
+        date_unique = _parse_date_ou_none(request.args.get("date"))
+        debut = _parse_date_ou_none(request.args.get("start"))
+        fin = _parse_date_ou_none(request.args.get("end"))
+    except ValueError:
+        return jsonify({"error": "Format de date invalide. Utilisez AAAA-MM-JJ."}), 400
 
-    # Récupérer les personnels de ces divisions
-    personnels_ids = [
-        p.idpers
-        for p in Personnels.query.filter(Personnels.iddiv.in_(divisions_ids)).all()
-    ]
+    if debut and fin and fin < debut:
+        return jsonify({"error": "'end' doit être une date postérieure ou égale à 'start'."}), 400
 
-    # Récupérer les autorisations de ces personnels
-    autorisations = AutorisationAbsence.query.filter(
-        AutorisationAbsence.idpers.in_(personnels_ids)
-    ).all()
+    query = AutorisationAbsence.query.filter(
+        AutorisationAbsence.idpers.in_(_personnels_du_service(idserv))
+    )
 
-    return jsonify([a.to_dict() for a in autorisations]), 200
+    if date_unique:
+        query = query.filter(AutorisationAbsence.date_absence == date_unique)
+    if debut:
+        query = query.filter(AutorisationAbsence.date_absence >= debut)
+    if fin:
+        query = query.filter(AutorisationAbsence.date_absence <= fin)
+
+    q = (request.args.get("q") or "").strip().lower()
+    if q:
+        motif = f"%{q}%"
+        query = query.join(Personnels, AutorisationAbsence.idpers == Personnels.idpers).filter(
+            or_(
+                func.lower(Personnels.matricule).like(motif),
+                func.lower(Personnels.nom).like(motif),
+                func.lower(Personnels.prenom).like(motif),
+                func.lower(AutorisationAbsence.motif).like(motif),
+            )
+        )
+
+    # Les plus récentes d'abord ; l'id départage les ex æquo (pagination stable)
+    query = query.order_by(AutorisationAbsence.date_absence.desc(), AutorisationAbsence.id.desc())
+
+    page = request.args.get("page", type=int)
+    if not page:
+        return jsonify([a.to_dict() for a in query.all()]), 200
+
+    page = max(page, 1)
+    per_page = max(1, min(request.args.get("per_page", default=10, type=int) or 10, _PER_PAGE_MAX))
+
+    total = query.order_by(None).count()
+    lignes = (
+        query.options(
+            joinedload(AutorisationAbsence.personnel),
+            joinedload(AutorisationAbsence.type_autorisation),
+        )
+        .limit(per_page)
+        .offset((page - 1) * per_page)
+        .all()
+    )
+
+    return jsonify({
+        "data": [a.to_dict() for a in lignes],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }), 200
 
 
 @bp.route('/par-date', methods=['GET'])
@@ -44,8 +114,14 @@ def get_autorisations_par_date():
 
         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        autorisations = AutorisationAbsence.query.filter_by(date_absence=date_obj).all()
-        return jsonify([a.to_dict() for a in autorisations]), 200
+        query = AutorisationAbsence.query.filter_by(date_absence=date_obj)
+
+        # Restreint au service demandé : sans idserv, on garde l'ancien comportement
+        idserv = request.args.get('idserv', type=int)
+        if idserv:
+            query = query.filter(AutorisationAbsence.idpers.in_(_personnels_du_service(idserv)))
+
+        return jsonify([a.to_dict() for a in query.all()]), 200
     except ValueError:
         return jsonify({"error": "Format de date invalide. Utilisez AAAA-MM-JJ."}), 400
 

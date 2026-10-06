@@ -5,6 +5,7 @@ import {
   ScrollIcon,
   CalendarBlankIcon,
   UserGearIcon,
+  SquaresFourIcon,
 } from "@phosphor-icons/react";
 import { CalendarX, ClipboardText } from "@phosphor-icons/react";
 
@@ -94,6 +95,7 @@ const DesktopNav = ({
   openPerso,
   openConge,
   openAutorisaion,
+  openDashboard,
   openPresences,
   openAssd,
 }) => {
@@ -169,6 +171,14 @@ const DesktopNav = ({
 
           {admin?.role === "responsable" && (
             <div style={groupStyle}>
+              <li
+                onClick={() => handleClick("dashboard", openDashboard)}
+                className={isActive("dashboard")}
+              >
+                <SquaresFourIcon size={20} weight="bold" />
+                <span style={{ fontFamily: NAV_FONT }}>Dashboard</span>
+              </li>
+
               <li
                 onClick={() => handleClick("personnels", openPerso)}
                 className={isActive("personnels")}

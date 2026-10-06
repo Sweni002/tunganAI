@@ -18,7 +18,7 @@ export default function StatsCards({
     fetchWithAuth,
     refreshKey,
 }) {
-    const { stats } = useStatsService({
+    const { stats, loading } = useStatsService({
         idserv,
         iddiv,
         selectedDate,
@@ -46,6 +46,7 @@ export default function StatsCards({
             }}
         >
             <StatCard
+                loading={loading}
                 icon={<PeopleAltOutlinedIcon />}
                 iconBg="rgba(27, 105, 121, 0.1)"
                 iconColor="#1b6979"
@@ -56,6 +57,7 @@ export default function StatsCards({
             />
 
             <StatCard
+                loading={loading}
                 icon={<AccessTimeOutlinedIcon />}
                 iconBg="rgba(255, 165, 0, 0.12)"
                 iconColor="#FFA500"
@@ -66,6 +68,7 @@ export default function StatsCards({
             />
 
             <StatCard
+                loading={loading}
                 icon={<CheckCircleOutlineIcon />}
                 iconBg="rgba(45, 172, 96, 0.12)"
                 iconColor="#2DAC60"
@@ -76,6 +79,7 @@ export default function StatsCards({
             />
 
             <StatCard
+                loading={loading}
                 icon={<CancelOutlinedIcon />}
                 iconBg="rgba(229, 72, 77, 0.12)"
                 iconColor="#e5484d"

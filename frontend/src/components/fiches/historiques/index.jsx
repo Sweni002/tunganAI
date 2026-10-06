@@ -1,8 +1,9 @@
 // historiques/index.jsx
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Link from '@mui/material/Link';
 import styles from '../presences.module.css';
+import '../presences/m3-expressive.css'; // thème M3 Expressive partagé
 import MobilePresence from '../MobilePresence';
 
 import { usePersonnelIdentity } from './hooks/usePersonnelIdentity';
@@ -26,6 +27,12 @@ import dayjs from 'dayjs';
 import PageHeader from '../../content/autorisations_absences/components/PageHeader';
 
 const Historique = () => {
+    // Active le thème M3 Expressive (aussi pour menus/dialogues portalés)
+    useEffect(() => {
+        document.body.classList.add('m3x-active');
+        return () => document.body.classList.remove('m3x-active');
+    }, []);
+
     // --- Identité / contexte ---
     const { admin, idpers, navigate } = usePersonnelIdentity();
     const fetchWithAuth = useMemo(() => createFetchWithAuth(navigate), [navigate]);
@@ -138,17 +145,23 @@ const Historique = () => {
                 subtitle="Historique des pointages et présences"
             />
 
-            <FiltrePeriode
-                dateDebutFiltre={dateDebutFiltre}
-                setDateDebutFiltre={setDateDebutFiltre}
-                dateFinFiltre={dateFinFiltre}
-                setDateFinFiltre={setDateFinFiltre}
-                poppers={poppers}
-                onFiltrer={handleFiltrerParDates}
-                onReset={handleResetFiltre}
-                downloadPDF={() => downloadPDF(dateDebutFiltre, dateFinFiltre)}
-                loadingPdf={loadingPdf}
-            />
+            <section className={styles.filtresCard} aria-label="Filtres">
+                <div className={styles.filtresTitle}>
+                    <i className="fa-solid fa-sliders" aria-hidden="true"></i>
+                    <span>Filtres</span>
+                </div>
+                <FiltrePeriode
+                    dateDebutFiltre={dateDebutFiltre}
+                    setDateDebutFiltre={setDateDebutFiltre}
+                    dateFinFiltre={dateFinFiltre}
+                    setDateFinFiltre={setDateFinFiltre}
+                    poppers={poppers}
+                    onFiltrer={handleFiltrerParDates}
+                    onReset={handleResetFiltre}
+                    downloadPDF={() => downloadPDF(dateDebutFiltre, dateFinFiltre)}
+                    loadingPdf={loadingPdf}
+                />
+            </section>
 
             <div className={styles.cardTab}>
                 <Toolbar

@@ -43,6 +43,18 @@ export function useAssiduiteController() {
   const [searchPers, setSearchPers] = useState("");
   const [divisions, setDivisions] = useState([]);
   const [personnels, setPersonnels] = useState([]);
+
+  // ---- Pagination + recherche côté serveur ----
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Totaux du mois (tous les agents filtrés, pas seulement la page)
+  const [resume, setResume] = useState(null);
+  const [loadingResume, setLoadingResume] = useState(false);
+  // Liste (limitée) proposée dans le popover "matricule", cherchée côté serveur
+  const [matriculeOptions, setMatriculeOptions] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingSupp, setLoadingSupp] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 480);
@@ -252,69 +264,136 @@ export function useAssiduiteController() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idserv]);
 
-  // ---- Personnels (fiche assiduité) ----
+  // Recherche : on attend 350 ms sans frappe avant d'interroger le serveur
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  // Terme envoyé au serveur : le matricule choisi prime sur la recherche libre
+  const serverQuery = selectedMatricule
+    ? typeof selectedMatricule === "string"
+      ? selectedMatricule
+      : selectedMatricule.matricule
+    : debouncedSearch;
+
+  // Tout changement de filtre ramène à la première page
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDivision, moisAll, anneeAll, serverQuery, pageSize, idserv]);
+
+  // ---- Personnels (fiche assiduité) : une seule page à la fois ----
   useEffect(() => {
     if (!idrh) {
-      return;
+      return undefined;
     }
-    console.log(
-      "Fetch avec selectedDivision:",
-      selectedDivision,
-      moisAll,
-      anneeAll,
-    );
-    console.log("Mois :", selectedDate);
+
+    let cancelled = false; // ignore les réponses devenues obsolètes
 
     const fetchData = async () => {
       setLoading(true);
 
       try {
-        const url = selectedDivision
-          ? `${API_URL}/api/fiches_assiduite/by_division?iddiv=${selectedDivision}&mois=${moisAll}&annee=${anneeAll}&idserv=${idserv}`
-          : `${API_URL}/api/fiches_assiduite/all?mois=${moisAll}&annee=${anneeAll}&idserv=${idserv}`;
+        const params = new URLSearchParams({
+          mois: moisAll,
+          annee: anneeAll,
+          idserv,
+          page,
+          per_page: pageSize,
+        });
+        if (serverQuery) params.set("q", serverQuery);
+        if (selectedDivision) params.set("iddiv", selectedDivision);
 
-        const data = await fetchWithAuth(url);
-        console.log("Données reçues:", data.data);
+        const route = selectedDivision ? "by_division" : "all";
+        const data = await fetchWithAuth(
+          `${API_URL}/api/fiches_assiduite/${route}?${params.toString()}`,
+        );
+        if (cancelled) return;
 
         setPersonnels(Array.isArray(data.data) ? data.data : []);
+        setTotal(typeof data.total === "number" ? data.total : 0);
         setReady(true);
       } catch (e) {
+        if (cancelled) return;
         console.error(e);
         setPersonnels([]);
+        setTotal(0);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDivision, moisAll, anneeAll, refreshKey, idserv]);
+  }, [selectedDivision, moisAll, anneeAll, refreshKey, idserv, page, pageSize, serverQuery]);
 
-  // ---- Personnels (rafraîchissement lié à l'ouverture du popover matricule) ----
+  // ---- Résumé du mois : un seul appel, indépendant de la pagination ----
   useEffect(() => {
-    console.log("Mois", moisAll);
     if (!idrh) {
-      return;
+      return undefined;
     }
-    if (anchorEl) {
-      setLoading(true);
 
-      fetchWithAuth(
-        `${API_URL}/api/fiches_assiduite/all?mois=${moisAll}&annee=${anneeAll}&idserv=${idserv}`,
-      )
+    let cancelled = false;
+    setLoadingResume(true);
+
+    const params = new URLSearchParams({ mois: moisAll, annee: anneeAll, idserv });
+    if (serverQuery) params.set("q", serverQuery);
+    if (selectedDivision) params.set("iddiv", selectedDivision);
+
+    fetchWithAuth(`${API_URL}/api/fiches_assiduite/resume?${params.toString()}`)
+      .then((data) => !cancelled && setResume(data))
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        setResume(null);
+      })
+      .finally(() => !cancelled && setLoadingResume(false));
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDivision, moisAll, anneeAll, refreshKey, idserv, serverQuery]);
+
+  // ---- Popover matricule : recherche serveur (30 résultats max) ----
+  useEffect(() => {
+    if (!idrh || !anchorEl) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const t = setTimeout(() => {
+      setLoadingOptions(true);
+      const params = new URLSearchParams({
+        mois: moisAll,
+        annee: anneeAll,
+        idserv,
+        page: 1,
+        per_page: 30,
+      });
+      if (searchPers.trim()) params.set("q", searchPers.trim());
+
+      fetchWithAuth(`${API_URL}/api/fiches_assiduite/all?${params.toString()}`)
         .then((data) => {
-          setPersonnels(Array.isArray(data.data) ? data.data : []);
-          console.log("datae", data);
+          if (cancelled) return;
+          setMatriculeOptions(Array.isArray(data.data) ? data.data : []);
           setErrorMsg(null);
         })
-        .catch((e) => setErrorMsg(e.message))
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchorEl, moisAll, anneeAll, refreshKey, idserv]);
+        .catch((e) => !cancelled && setErrorMsg(e.message))
+        .finally(() => !cancelled && setLoadingOptions(false));
+    }, 300);
 
-  // ---- Filtrage local (division / matricule / recherche texte) ----
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchorEl, searchPers, moisAll, anneeAll, idserv]);
+
+  // ---- Filtrage local de sécurité (division / matricule) ----
   const filteredPersonnels = personnels.filter((p) => {
     if (selectedDivision) {
       const divisionObj = divisions.find(
@@ -331,12 +410,8 @@ export function useAssiduiteController() {
       return p.matricule === selected;
     }
 
-    const lower = searchText.toLowerCase();
-    return (
-      (p.matricule && p.matricule.toLowerCase().includes(lower)) ||
-      (p.nom && p.nom.toLowerCase().includes(lower)) ||
-      (p.prenom && p.prenom.toLowerCase().includes(lower))
-    );
+    // La recherche texte est faite par le serveur (paramètre q)
+    return true;
   });
 
   // ---- Sélection d'un matricule (filtre + détail) ----
@@ -494,6 +569,11 @@ export function useAssiduiteController() {
     searchPers, setSearchPers,
     divisions, setDivisions,
     personnels, setPersonnels,
+    page, setPage,
+    pageSize, setPageSize,
+    total,
+    resume, loadingResume,
+    matriculeOptions, loadingOptions,
     loading, setLoading,
     loadingSupp, setLoadingSupp,
     isMobile,
