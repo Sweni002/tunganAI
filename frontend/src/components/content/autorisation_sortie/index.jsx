@@ -15,8 +15,8 @@ import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import styles from "./conge.module.css";
 import { getColumns } from "./constants/columns";
 import AutorisationDialog from "./components/AutorisationDialog";
-import { useFilters } from "../autorisations_absences/hooks/useFilters";
-import { useDelete } from "../autorisations_absences/hooks/useDelete";
+import { useFilters } from "./hooks/useFilters";
+import { useDelete } from "./hooks/useDelete";
 import Filters from "../autorisations_absences/components/Filters";
 import SearchBar from "../autorisations_absences/components/SearchBar";
 import DataTable from "../autorisations_absences/components/DataTable";
@@ -66,7 +66,7 @@ const AutorisationSortie = () => {
     handleFiltrerParDateUnique,
     handleOpenDatePicker,
     handleClosePicker,
-  } = useFilters(setConges, setSnackMessage, setSnackError, setOpenSnack, "speciales");
+  } = useFilters(setConges, setSnackMessage, setSnackError, setOpenSnack);
 
   // Hook pour la suppression
   const {
@@ -75,7 +75,7 @@ const AutorisationSortie = () => {
     handleDeleteClick,
     handleConfirmDelete,
     setConfirmOpen,
-  } = useDelete(setConges, setSnackMessage, setSnackError, setOpenSnack, "speciales");
+  } = useDelete(setConges, setSnackMessage, setSnackError, setOpenSnack);
 
   // Hook pour le formulaire d'autorisation
   const {
@@ -254,7 +254,7 @@ const AutorisationSortie = () => {
         <SearchBar
           selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
-          handleFiltrerParDateUnique={handleFiltrerParDateUnique}
+          handleFiltrerParDateUnique={(date) => handleFiltrerParDateUnique(date, admin?.responsable?.idserv)}
           searchText={searchText}
           setSearchText={setSearchText}
           dateInputRef={dateInputRef}

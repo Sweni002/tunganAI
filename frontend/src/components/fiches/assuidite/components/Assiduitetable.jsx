@@ -1,5 +1,6 @@
 import React from "react";
 import { Table } from "antd";
+import { useTableSkeleton } from "../../common/tableSkeleton";
 import styles from "../assiduite.module.css";
 
 const AssiduiteTable = ({
@@ -9,19 +10,36 @@ const AssiduiteTable = ({
   selectionType,
   columns,
   filteredPersonnels,
+  page = 1,
+  pageSize = 10,
+  total = 0,
+  onPageChange,
 }) => {
+  const rows = filteredPersonnels.map((p) => ({
+    ...p,
+    key: p.idpointage || p.matricule || `${p.nom}-${p.prenom}`,
+  }));
+  const showSkeleton = loading || !ready;
+  const view = useTableSkeleton({ loading: showSkeleton, columns, dataSource: rows, rowCount: pageSize });
+
   return (
-    <div className={`${styles.tableau} ${styles.shadowedTable}`}>
+    <div className={`${styles.tableau} ${styles.shadowedTable}`} aria-busy={showSkeleton}>
       <Table
-        loading={loading || !ready}
-        pagination={{ position: ["bottomCenter"], pageSize: 10 }}
-        scroll={{ x: 1300, y: { xs: 300, sm: 540 } }}
+        loading={false}
+        pagination={{
+          position: ["bottomCenter"],
+          current: page,
+          pageSize,
+          total,
+          onChange: onPageChange,
+          showSizeChanger: true,
+          pageSizeOptions: [10, 20, 50],
+          showTotal: (t, [from, to]) => `${from}-${to} sur ${t}`,
+        }}
+        scroll={{ x: 1800, y: { xs: 300, sm: 540 } }}
         rowSelection={{ type: selectionType, ...rowSelection }}
-        columns={columns}
-        dataSource={filteredPersonnels.map((p) => ({
-          ...p,
-          key: p.idpointage || p.matricule || `${p.nom}-${p.prenom}`,
-        }))}
+        columns={view.columns}
+        dataSource={view.dataSource}
         rowClassName={() => styles.largeRow}
         onHeaderRow={() => ({ className: styles.largeHeader })}
       />

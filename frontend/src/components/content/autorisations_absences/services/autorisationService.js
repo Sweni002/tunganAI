@@ -30,9 +30,20 @@ export const autorisationService = {
     );
   },
 
-  async getAutorisationsByDate(date) {
+  // Une page d'autorisations d'un service, filtrée côté serveur.
+  // params : { page, per_page, q, date, start, end } (valeurs vides ignorées)
+  async getAutorisationsPage(idserv, params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") query.set(k, String(v));
+    });
+    return this.fetchWithAuth(`${API_URL}/api/autorisations/${idserv}?${query.toString()}`);
+  },
+
+  async getAutorisationsByDate(date, idserv) {
+    const extra = idserv ? `&idserv=${idserv}` : "";
     return this.fetchWithAuth(
-      `${API_URL}/api/autorisations/par-date?date=${date}`
+      `${API_URL}/api/autorisations/par-date?date=${date}${extra}`
     );
   },
 

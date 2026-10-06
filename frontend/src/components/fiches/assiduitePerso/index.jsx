@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import "../presences/m3-expressive.css"; // thème M3 Expressive partagé
 import styles from "./assiduite.module.css"; // ⚠️ même fichier CSS que l'original, inchangé
 
 import { useAssuiditePersoController } from "./useAssuiditePersoController";
@@ -15,6 +16,12 @@ import DesktopView from "./components/DesktopView";
 
 const AssuiditePerso = () => {
   const c = useAssuiditePersoController();
+
+  // Active le thème M3 Expressive (aussi pour menus/dialogues portalés)
+  useEffect(() => {
+    document.body.classList.add("m3x-active");
+    return () => document.body.classList.remove("m3x-active");
+  }, []);
 
   const { columns } = buildAssuiditePersoColumns({
     types: c.types,

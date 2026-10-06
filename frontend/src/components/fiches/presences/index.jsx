@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 
 import styles from './presences.module.css';
+import './m3-expressive.css';
 import MobilePresence2 from '../MobilePresence2';
 
 import { useAdminAuth } from './hooks/useAdminAuth';
@@ -27,13 +28,19 @@ import PresenceTable from './components/PresenceTable';
 import RowActionsMenu from './components/RowActionsMenu';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
 import AppSnackbar from './components/AppSnackbar';
-import FullPageLoader from './components/FullPageLoader';
+import PageSkeleton from './components/PageSkeleton';
 import Collapse from '@mui/material/Collapse';
 import PageHeader from '../../content/autorisations_absences/components/PageHeader';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 const Presences = () => {
+    // Active le thème M3 Expressive (aussi pour menus/dialogues portalés)
+    useEffect(() => {
+        document.body.classList.add('m3x-active');
+        return () => document.body.classList.remove('m3x-active');
+    }, []);
+
     // --- Auth / contexte ---
     const { idrh, idserv, navigate } = useAdminAuth();
     const fetchWithAuth = useMemo(() => createFetchWithAuth(navigate), [navigate]);
@@ -224,7 +231,7 @@ const Presences = () => {
     }, []);
 
     if (loadingPage) {
-        return <FullPageLoader open={loadingPage} />;
+        return <PageSkeleton />;
     }
 
     if (isMobile) {
@@ -264,48 +271,51 @@ const Presences = () => {
             />
 
 
-            <div style={{ display: 'flex', alignItems: 'end', justifyContent: 'flex-end', width: '100%', maxWidth: 1700 }}>
-                <DivisionsToggleButton
-                    open={showDivisionsBar}
-                    onToggle={() => setShowDivisionsBar((v) => !v)}
-                    hasActiveFilter={Boolean(selectedDivision)}
-                />
-            </div>
+            {/* ---- Carte "Filtres" : divisions + période regroupées ---- */}
+            <section className={styles.filtresCard} aria-label="Filtres">
+                <div className={styles.filtresHeader}>
+                    <div className={styles.filtresTitle}>
+                        <i className="fa-solid fa-sliders" aria-hidden="true"></i>
+                        <span>Filtres</span>
+                    </div>
+                    <DivisionsToggleButton
+                        open={showDivisionsBar}
+                        onToggle={() => setShowDivisionsBar((v) => !v)}
+                        hasActiveFilter={Boolean(selectedDivision)}
+                    />
+                </div>
 
-            <Collapse
-                in={showDivisionsBar}
-                timeout={250}
-                unmountOnExit
-                sx={{ width: '100%', maxWidth: 1700, display: 'flex', alignContent: 'center', justifyContent: 'space-between' }}
-            >
-                <DivisionsBar
-                    divisions={divisions}
-                    selectedDivision={selectedDivision}
-                    setSelectedDivision={setSelectedDivision}
-                    scrollRef={scrollRef}
-                    showLeft={showLeft}
-                    showRight={showRight}
-                    scroll={scroll}
-                    scrollBtnsRef={scrollBtnsRef}
-                />
-            </Collapse>
+                <Collapse in={showDivisionsBar} timeout={250} unmountOnExit sx={{ width: '100%' }}>
+                    <DivisionsBar
+                        divisions={divisions}
+                        selectedDivision={selectedDivision}
+                        setSelectedDivision={setSelectedDivision}
+                        scrollRef={scrollRef}
+                        showLeft={showLeft}
+                        showRight={showRight}
+                        scroll={scroll}
+                        scrollBtnsRef={scrollBtnsRef}
+                    />
+                    <div className={styles.filtresDivider} />
+                </Collapse>
 
-            <DateRangeFilter
-                dateDebutFiltre={dateDebutInput}
-                setDateDebutFiltre={setDateDebutInput}
-                dateFinFiltre={dateFinInput}
-                setDateFinFiltre={setDateFinInput}
-                poppers={poppers}
-                onFiltrer={handleFiltrerParDates}
-                onReset={handleResetFiltre}
-                downloadPDF={() => downloadPDF(dateDebutInput, dateFinInput)}
-                downloadPDF1={(type) => downloadPDF1(type, dateDebutInput, dateFinInput)}
-                loadingPdf={loadingPdf}
-                menuExportAnchorEl={menuExportPeriodeAnchorEl}
-                openMenuExport={Boolean(menuExportPeriodeAnchorEl)}
-                onOpenMenuExport={(e) => setMenuExportPeriodeAnchorEl(e.currentTarget)}
-                onCloseMenuExport={() => setMenuExportPeriodeAnchorEl(null)}
-            />
+                <DateRangeFilter
+                    dateDebutFiltre={dateDebutInput}
+                    setDateDebutFiltre={setDateDebutInput}
+                    dateFinFiltre={dateFinInput}
+                    setDateFinFiltre={setDateFinInput}
+                    poppers={poppers}
+                    onFiltrer={handleFiltrerParDates}
+                    onReset={handleResetFiltre}
+                    downloadPDF={() => downloadPDF(dateDebutInput, dateFinInput)}
+                    downloadPDF1={(type) => downloadPDF1(type, dateDebutInput, dateFinInput)}
+                    loadingPdf={loadingPdf}
+                    menuExportAnchorEl={menuExportPeriodeAnchorEl}
+                    openMenuExport={Boolean(menuExportPeriodeAnchorEl)}
+                    onOpenMenuExport={(e) => setMenuExportPeriodeAnchorEl(e.currentTarget)}
+                    onCloseMenuExport={() => setMenuExportPeriodeAnchorEl(null)}
+                />
+            </section>
 
             <div className={styles.cardTab} style={{ maxWidth: 1700 }}>
                 <ActionsBar

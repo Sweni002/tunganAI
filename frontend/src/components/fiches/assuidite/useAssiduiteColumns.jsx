@@ -1,5 +1,26 @@
 import React from "react";
 import { Tooltip } from "antd";
+import { hmsToMinutes } from "../assiduitePerso/components/retardUtils";
+
+// Tons M3 : fond tonal + texte contrasté ; neutre quand la valeur est 0
+const TONES = {
+  info: { bg: "#e4eef0", fg: "#1b6979" },
+  warn: { bg: "#fdf0d2", fg: "#8a5a00" },
+  danger: { bg: "#fde4e5", fg: "#a82a31" },
+  neutral: { bg: "#f1f3f4", fg: "#8a9396" },
+};
+const chipStyle = (tone, active) => {
+  const t = active ? TONES[tone] : TONES.neutral;
+  return {
+    backgroundColor: t.bg,
+    color: t.fg,
+    borderRadius: 999,
+    padding: "4px 14px",
+    fontWeight: 700,
+    transition: "transform 280ms cubic-bezier(0.34,1.56,0.64,1)",
+  };
+};
+
 
 /**
  * Construit les colonnes du tableau à partir des types d'absence dynamiques.
@@ -25,9 +46,7 @@ export function buildAssiduiteColumns(types) {
               flexDirection: "column",
               justifyContent: "center",
               alignItems: "center",
-              backgroundColor: nombre > 0 ? "#e6f7ff" : "#f5f5f5",
-              padding: "4px",
-              borderRadius: "4px",
+              ...chipStyle("info", nombre > 0),
               minWidth: 40,
               minHeight: 30,
               textAlign: "center",
@@ -73,6 +92,7 @@ export function buildAssiduiteColumns(types) {
     },
     {
       title: "Volume et Nbre de jrs d'absences non valables",
+      className: "m3x-col-danger",
       children: [
         {
           title: "Nbre de retard",
@@ -94,9 +114,7 @@ export function buildAssiduiteColumns(types) {
                     flexDirection: "column",
                     justifyContent: "center",
                     alignItems: "center",
-                    backgroundColor: "#fff9db",
-                    padding: "4px",
-                    borderRadius: "4px",
+                    ...chipStyle("warn", (retard?.nombre ?? 0) > 0),
                     minWidth: 40,
                     minHeight: 30,
                     textAlign: "center",
@@ -115,9 +133,9 @@ export function buildAssiduiteColumns(types) {
           render: (val) => (
             <div
               style={{
-                backgroundColor: "#fff9db",
-                padding: "4px",
-                borderRadius: "4px",
+                display: "inline-block",
+                minWidth: 40,
+                ...chipStyle("warn", hmsToMinutes(val) > 0),
               }}
             >
               {val}
@@ -147,9 +165,7 @@ export function buildAssiduiteColumns(types) {
                     flexDirection: "column",
                     justifyContent: "center",
                     alignItems: "center",
-                    backgroundColor: "#ffe6e6",
-                    padding: "4px",
-                    borderRadius: "4px",
+                    ...chipStyle("danger", (r.absences?.non_justifiees?.nombre ?? 0) > 0),
                     minWidth: 40,
                     minHeight: 30,
                     textAlign: "center",
@@ -165,6 +181,7 @@ export function buildAssiduiteColumns(types) {
     },
     {
       title: "Nombre de jrs d'absences justifiées ou valables(jrs)",
+      className: "m3x-col-info",
       children: childrenColumns,
     },
   ];

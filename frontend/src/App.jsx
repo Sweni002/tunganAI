@@ -40,6 +40,7 @@ import AjoutService from './components/services/AjoutService/index.jsx';
 import AjoutRespo from './components/content/responsables/AjoutRespo.jsx';
 import Login from './components/login/_components/Login.jsx';
 import Presences from './components/fiches/presences/index.jsx';
+import Dashboard from './components/fiches/dashboard/index.jsx';
 import Assiduites from './components/fiches/assuidite/index.jsx';
 import AssuiditePerso from './components/fiches/assiduitePerso/index.jsx';
 import Autorisations from './components/content/autorisations_absences/index.jsx';
@@ -131,6 +132,15 @@ function AppContent() {
         <Route path="pointages" element={<Pointage />} />
 
         {/* ✅ Routes ADMIN + RESPONSABLE */}
+        <Route
+          path="dashboard"
+          element={
+            <RoleRoute roles={["responsable"]}>
+              <Dashboard />
+            </RoleRoute>
+          }
+        />
+
         <Route
           path="fiche_presence"
           element={

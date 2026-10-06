@@ -9,6 +9,7 @@ import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 
+import styles from "./pointageDesktop.module.css";
 import PointageView from "./PointageView";
 import DataChartsColumn from "./DataChartsColumn";
 import ProfileHistoryCard, { HistoryDetailCard } from "./ProfileHistoryCard";
@@ -75,183 +76,91 @@ const PointagePageDesktop = ({
     const displayedItem = selectedItem ?? lastItem;
 
     return (
-        <div
-            style={{
-                width: "100%",
-                minHeight: "100vh",
-                backgroundColor: "#0a1420",
-                backgroundImage: "radial-gradient(circle at 20% 10%, rgba(79,216,255,0.06), transparent 40%)",
-                fontFamily: "'Roboto Mono', monospace",
-                padding: "20px 28px",
-                boxSizing: "border-box",
-            }}
-        >
+        <div className={styles.page}>
+            <div className={styles.container}>
+                {/* Barre du haut : logo à gauche, accueil à droite */}
+                <header className={styles.topBar}>
+                    <img src={LogoImg} alt="Tongan'Ai Logo" className={styles.logo} />
 
-            {/* Barre du haut style "Carte Sombre Premium" */}
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    backgroundColor: "rgba(255, 255, 255, 0.03)",
-                    backdropFilter: "blur(10px)",
-                    WebkitBackdropFilter: "blur(10px)",
-                    border: "1px solid rgba(255, 255, 255, 0.08)",
-                    borderRadius: 16,
-                    padding: "12px 24px",
-                    marginBottom: 24,
-                    boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
-                }}
-            >
-                {/* Zone Gauche : Logo + Titre */}
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <img
-                        src={LogoImg}
-                        alt="Tongan'Ai Logo"
-                        style={{
-                            height: 40,
-                            width: 'auto',
-                            display: 'block'
-                        }}
-                    />
-                
-                </div>
-
-                {/* Zone Droite : Action unique Accueil */}
-                <Box>
                     <IconButton
+                        className={styles.homeBtn}
                         onClick={goHome}
                         aria-label="revenir à l'accueil"
-                        sx={{
-                            color: "#7fd8ff",
-                            backgroundColor: "rgba(127, 216, 255, 0.05)",
-                            padding: "10px",
-                            transition: "all 0.3s ease-in-out",
-                            "&:hover": {
-                                color: "#ffffff",
-                                backgroundColor: "rgba(127, 216, 255, 0.15)",
-                                transform: "translateY(-2px) scale(1.05)",
-                                boxShadow: "0 0 15px rgba(127, 216, 255, 0.3)",
-                            },
-                            "&:active": {
-                                transform: "scale(0.95)",
-                            }
-                        }}
                     >
                         <HomeIcon sx={{ fontSize: "1.6rem" }} />
                     </IconButton>
-                </Box>
-            </div>
+                </header>
 
-            {/* Contenu principal : caméra+contrôles  | détail + historique */}
-            <div style={{ display: "flex", gap: 18, alignItems: "stretch" }}>
-                {/* Colonne caméra */}
-                <div
-                    style={{
-                        flex: 1,
-                        minWidth: 0,
-                        ...(displayedItem
-                            ? {}
-                            : {
-                                maxWidth: 1300, margin: "0 auto",
+                {/* Contenu principal : caméra + contrôles | détail + historique */}
+                <main className={styles.layout}>
+                    <div className={`${styles.cameraCol} ${displayedItem ? "" : styles.cameraAlone}`}>
+                        <div className={styles.cameraCard}>
+                            <PointageView
+                                processingStep={processingStep}
+                                webcamRef={webcamRef}
+                                canvasRef={canvasRef}
+                                webcamReady={webcamReady}
+                                loadingModels={loadingModels}
+                                isLargeScreen
+                                scanning={scanning}
+                                active={active}
+                                pointageStarted={pointageStarted}
+                                startingPointage={startingPointage}
+                                sendingToServer={sendingToServer}
+                                snackbarOpen={snackbarOpen}
+                                snackbarMessage={snackbarMessage}
+                                snackbarSeverity={snackbarSeverity}
+                                modalOpen={modalOpen}
+                                modalMessage={modalMessage}
+                                modalType={modalType}
+                                onCloseSnackbar={closeSnackbar}
+                                onCloseModal={closeModal}
+                                onHandleClick={handleClick}
+                                onStartPointage={handleStartPointage}
+                                onGoBack={goBack}
+                                modelsLoaded={modelsLoaded}
+                                containerStyle={{
+                                    width: "100%",
+                                    maxWidth: "100%",
+                                    height: "100%",
+                                    borderRadius: 10,
+                                    overflow: "hidden",
+                                }}
+                                hideActionBar
+                            />
+                        </div>
 
-                            }),
-                    }}
-                >
-                    <div
-                        style={{
-                            backgroundColor: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.08)",
-                            borderRadius: 12,
-                            height: 450,
-                        }}
-                    >
-
-                        <PointageView
-                            processingStep={processingStep}
-                            webcamRef={webcamRef}
-                            canvasRef={canvasRef}
-                            webcamReady={webcamReady}
-                            loadingModels={loadingModels}
-                            isLargeScreen
-                            scanning={scanning}
+                        <DashboardControlsBar
                             active={active}
-                            pointageStarted={pointageStarted}
                             startingPointage={startingPointage}
-                            sendingToServer={sendingToServer}
-                            snackbarOpen={snackbarOpen}
-                            snackbarMessage={snackbarMessage}
-                            snackbarSeverity={snackbarSeverity}
-                            modalOpen={modalOpen}
-                            modalMessage={modalMessage}
-                            modalType={modalType}
-                            onCloseSnackbar={closeSnackbar}
-                            onCloseModal={closeModal}
+                            modelsLoaded={modelsLoaded}
                             onHandleClick={handleClick}
                             onStartPointage={handleStartPointage}
-                            onGoBack={goBack}
-                            modelsLoaded={modelsLoaded}
-                            containerStyle={{
-                                width: "100%",
-                                maxWidth: "100%",
-                                height: "100%",
-                                borderRadius: 10,
-                                overflow: "hidden",
-                            }}
-                            hideActionBar
                         />
                     </div>
 
-                    <DashboardControlsBar
-                        active={active}
-                        startingPointage={startingPointage}
-                        modelsLoaded={modelsLoaded}
-                        onHandleClick={handleClick}
-                        onStartPointage={handleStartPointage}
-                    />
+                    {/* Colonne détail + historique : affichée UNIQUEMENT s'il y a un item à montrer */}
+                    {displayedItem && (
+                        <aside className={styles.sideCol}>
+                            <HistoryDetailCard
+                                item={displayedItem}
+                                onClose={() => setSelectedItem(null)}
+                            />
 
+                            <ProfileHistoryCard
+                                history={items}
+                                loading={historyLoading}
+                                selectedItem={displayedItem}
+                                onSelectItem={setSelectedItem}
+                            />
+                        </aside>
+                    )}
+                </main>
 
-                </div>
-
-
-                {/* Colonne détail + historique : affichée UNIQUEMENT s'il y a un item à montrer */}
-                {displayedItem && (
-                    <div
-                        style={{
-                            width: 520,
-                            minWidth: 280,
-                            flexShrink: 0,
-                            display: "flex",
-                            flexDirection: "column",
-                        }}
-                    >
-                        <HistoryDetailCard
-                            item={displayedItem}
-                            onClose={() => setSelectedItem(null)}
-                        />
-
-                        <ProfileHistoryCard
-                            history={items}
-                            loading={historyLoading}
-                            selectedItem={displayedItem}
-                            onSelectItem={setSelectedItem}
-                        />
-                    </div>
-                )}
-
-
-            </div>
-
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    width: "100%",
-                    maxWidth: displayedItem ? "100%" : 1300, // S'aligne avec la colonne caméra quand elle est seule
-                    margin: "0 auto",
-                }}
-            >
-                <FruitStatsGrid refreshKey={items.length} />
+                {/* Statistiques : s'alignent avec la colonne caméra quand elle est seule */}
+                <section className={`${styles.stats} ${displayedItem ? "" : styles.statsAlone}`}>
+                    <FruitStatsGrid refreshKey={items.length} />
+                </section>
             </div>
         </div>
     );

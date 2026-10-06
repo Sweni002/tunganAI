@@ -1,8 +1,9 @@
 // components/PresenceTable.jsx
 import React from 'react';
-import { Table, Button, Space, Typography } from 'antd';
+import { Table, Button } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import styles from '../presences.module.css';
+import { useTableSkeleton } from '../../common/tableSkeleton';
 
 export default function PresenceTable({
   loading,
@@ -15,41 +16,45 @@ export default function PresenceTable({
   canGoPrev,
   pageIndex = 0,
 }) {
+  // Squelettes pendant le chargement (au lieu du spinner par-dessus le tableau)
+  const view = useTableSkeleton({ loading, columns, dataSource });
+
   return (
     <>
       <Table
-        loading={loading}
+        loading={false}
         pagination={false} // pagination gérée par le curseur serveur
-        scroll={{ x: 1300, y: 540 }}
+        scroll={{ x: 1800, y: 560 }}
         rowSelection={rowSelection}
-        columns={columns}
-        dataSource={dataSource}
+        columns={view.columns}
+        dataSource={view.dataSource}
         rowKey={(record) => record.id ?? record.key}
         rowClassName={() => styles.largeRow}
         onHeaderRow={() => ({ className: styles.largeHeader })}
       />
 
-      <Space
-        align="center"
-        style={{
-          width: '100%',
-          justifyContent: 'center',
-          padding: '16px 0',
-          fontFamily: "'Poppins', system-ui, sans-serif",
-        }}
-      >
-        <Button icon={<LeftOutlined />} disabled={!canGoPrev || loading} onClick={onPrevPage}>
+      <nav className={styles.pager} aria-label="Pagination">
+        <Button
+          className={styles.pagerBtn}
+          icon={<LeftOutlined />}
+          disabled={!canGoPrev || loading}
+          onClick={onPrevPage}
+        >
           Précédent
         </Button>
 
-        <Typography.Text type="secondary" style={{ minWidth: 90, textAlign: 'center' }}>
+        <span className={styles.pagerPage} aria-current="page">
           Page {pageIndex + 1}
-        </Typography.Text>
+        </span>
 
-        <Button disabled={!hasMore || loading} onClick={onNextPage}>
+        <Button
+          className={`${styles.pagerBtn} ${styles.pagerBtnPrimary}`}
+          disabled={!hasMore || loading}
+          onClick={onNextPage}
+        >
           Suivant <RightOutlined />
         </Button>
-      </Space>
+      </nav>
     </>
   );
 }

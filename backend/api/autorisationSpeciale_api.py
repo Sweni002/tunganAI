@@ -146,6 +146,40 @@ def create_autorisation_speciale():
         }), 500
 
 
+def _serialiser_autorisation(a):
+    """Format unique renvoyé par les trois routes de liste (service / plage / jour).
+
+    Le champ `etat` était absent des filtres par dates : la colonne « État » du
+    tableau restait vide après un filtrage.
+    """
+    pointage = Pointage.query.filter_by(idpers=a.idpers, autorisationsortie_id=a.id).first()
+
+    terminee = False
+    if pointage:
+        if a.periode == PeriodeAutorisation.matin:
+            terminee = pointage.heure_sortie_matin is not None
+        elif a.periode == PeriodeAutorisation.apres_midi:
+            terminee = pointage.heure_sortie_soir is not None
+
+    return {
+        "id": a.id,
+        "motif": a.motif,
+        "type_autorisation": a.type_autorisation.value if a.type_autorisation else None,
+        "periode": a.periode.value if a.periode else None,
+        "is_single_day": a.is_single_day,
+        "date_debut": a.date_debut.isoformat() if a.date_debut else None,
+        "date_fin": a.date_fin.isoformat() if a.date_fin else None,
+        "etat": "terminée" if terminee else "en cours",
+        "personnel": {
+            "idpers": a.idpers,
+            "nom": a.personnel.nom if a.personnel else None,
+            "prenom": a.personnel.prenom if a.personnel else None,
+            "matricule": a.personnel.matricule if a.personnel else None,
+            "iddiv": a.personnel.iddiv if a.personnel else None,
+        },
+    }
+
+
 @bp.route("/<int:idserv>", methods=["GET"])
 def get_autorisations_by_service(idserv):
     try:
@@ -157,44 +191,7 @@ def get_autorisations_by_service(idserv):
             .all()
         )
 
-        data = []
-
-        for a in result:
-
-            # 🔎 pointage correspondant (si tu veux garder l’état)
-            pointage = Pointage.query.filter_by(
-                idpers=a.idpers, autorisationsortie_id=a.id
-            ).first()
-
-            terminee = False
-
-            if pointage:
-                if a.periode == PeriodeAutorisation.matin:
-                    terminee = pointage.heure_sortie_matin is not None
-                elif a.periode == PeriodeAutorisation.apres_midi:
-                    terminee = pointage.heure_sortie_soir is not None
-
-            data.append(
-                {
-                    "id": a.id,
-                    "motif": a.motif,
-                    "type_autorisation": (
-                        a.type_autorisation.value if a.type_autorisation else None
-                    ),
-                    "periode": a.periode.value if a.periode else None,
-                    # 🔥 IMPORTANT : affichage des dates correctes
-                    "date_debut": a.date_debut.isoformat() if a.date_debut else None,
-                    "date_fin": a.date_fin.isoformat() if a.date_fin else None,
-                    "etat": "terminée" if terminee else "en cours",
-                    "personnel": {
-                        "idpers": a.idpers,
-                        "nom": a.personnel.nom if a.personnel else None,
-                        "prenom": a.personnel.prenom if a.personnel else None,
-                        "matricule": a.personnel.matricule if a.personnel else None,
-                        "iddiv": a.personnel.iddiv if a.personnel else None,
-                    },
-                }
-            )
+        data = [_serialiser_autorisation(a) for a in result]
 
         return jsonify({"success": True, "count": len(data), "data": data}), 200
 
@@ -246,23 +243,7 @@ def get_autorisations_between_dates(idserv):
             .all()
         )
 
-        data = []
-        for a in result:
-            data.append({
-                "id": a.id,
-                "motif": a.motif,
-                "type_autorisation": a.type_autorisation.value,
-                "periode": a.periode.value,
-                "date_debut": a.date_debut.isoformat(),
-                "date_fin": a.date_fin.isoformat() if a.date_fin else None,
-                "personnel": {
-                    "idpers": a.personnel.idpers,
-                    "nom": a.personnel.nom,
-                    "prenom": a.personnel.prenom,
-                    "matricule": a.personnel.matricule,
-                },
-            })
-        print("Resultàt =" , data)
+        data = [_serialiser_autorisation(a) for a in result]
         return jsonify(data), 200
 
     except Exception as e:
@@ -309,23 +290,7 @@ def get_autorisations_by_date(idserv):
             .all()
         )
 
-        data = []
-        for a in result:
-            data.append({
-                "id": a.id,
-                "motif": a.motif,
-                "type_autorisation": a.type_autorisation.value,
-                "periode": a.periode.value,
-                "is_single_day": a.is_single_day,
-                "date_debut": a.date_debut.isoformat(),
-                "date_fin": a.date_fin.isoformat() if a.date_fin else None,
-                "personnel": {
-                    "idpers": a.personnel.idpers,
-                    "nom": a.personnel.nom,
-                    "prenom": a.personnel.prenom,
-                    "matricule": a.personnel.matricule,
-                },
-            })
+        data = [_serialiser_autorisation(a) for a in result]
 
         return jsonify({
             "success": True,

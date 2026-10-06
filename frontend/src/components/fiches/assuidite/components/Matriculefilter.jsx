@@ -94,13 +94,7 @@ const MatriculeFilter = ({
             <p style={{ color: "red" }}>{errorMsg}</p>
           ) : (
             <div className={styles.liste}>
-              {personnels
-                .filter((p) =>
-                  `${p.nom} ${p.prenom} ${p.matricule}`
-                    .toLowerCase()
-                    .includes(searchPers.toLowerCase()),
-                )
-                .map((p) => (
+              {personnels.map((p) => (
                   <div
                     key={p.idpers}
                     className={styles.liste1}
@@ -113,7 +107,7 @@ const MatriculeFilter = ({
                     </div>
                     <i className="fa-solid fa-user-check"></i>
                   </div>
-                ))}
+              ))}
               {personnels.length === 0 && <p>Aucun personnel trouvé.</p>}
             </div>
           )}

@@ -5,9 +5,6 @@ import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../AuthContext";
-import { ThreeDot } from "react-loading-indicators";
-import Modal from "@mui/material/Modal";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 
 import styles from "./conge.module.css";
@@ -38,13 +35,18 @@ const Autorisations = () => {
     // Hook pour les autorisations
     const {
         conges,
-        setConges,
         divisions,
         loading,
         loadingPage,
-        selectedDivision,
-        loadData
-    } = useAutorisations(admin);
+        loadData,
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        total,
+        applyFilters,
+        reload,
+    } = useAutorisations(admin, searchText);
 
     // Hook pour les filtres
     const {
@@ -62,7 +64,7 @@ const Autorisations = () => {
         handleFiltrerParDateUnique,
         handleOpenDatePicker,
         handleClosePicker,
-    } = useFilters(setConges, setSnackMessage, setSnackError, setOpenSnack);
+    } = useFilters(applyFilters, setSnackMessage, setSnackError, setOpenSnack);
 
     // Hook pour la suppression
     const {
@@ -71,7 +73,7 @@ const Autorisations = () => {
         handleDeleteClick,
         handleConfirmDelete,
         setConfirmOpen,
-    } = useDelete(setConges, setSnackMessage, setSnackError, setOpenSnack);
+    } = useDelete(reload, setSnackMessage, setSnackError, setOpenSnack);
 
     // Récupération de l'admin
     useEffect(() => {
@@ -114,24 +116,6 @@ const Autorisations = () => {
         navigate("/global/ajout_auto");
     };
 
-    // Filtrage des congés
-    const filteredConges = conges.filter((c) => {
-        const lower = searchText.toLowerCase();
-        const nom = c.nom?.toLowerCase() || "";
-        const prenom = c.prenom?.toLowerCase() || "";
-        const matricule = c.matricule?.toLowerCase() || "";
-        const motif = c.motif?.toLowerCase() || "";
-
-        const matchesSearch =
-            matricule.includes(lower) ||
-            nom.includes(lower) ||
-            prenom.includes(lower) ||
-            motif.includes(lower);
-
-        if (!selectedDivision) return matchesSearch;
-        return matchesSearch && c.iddiv === selectedDivision;
-    });
-
     // Colonnes du tableau
     const columns = getColumns(navigate, handleDeleteClick);
 
@@ -145,42 +129,6 @@ const Autorisations = () => {
             name: record.nom,
         }),
     };
-
-    if (loadingPage) {
-        return (
-            <div
-                style={{
-                    height: "70vh",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    flexDirection: "column",
-                    gap: 12,
-                }}
-            >
-                <Modal open={loadingPage}>
-                    <Box
-                        sx={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            borderRadius: 2,
-                            px: 4,
-                            py: 3,
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 2,
-                            minWidth: 260,
-                        }}
-                    >
-                        <ThreeDot color="#ffffffff" size="medium" textColor="#555" />
-                    </Box>
-                </Modal>
-            </div>
-        );
-    }
 
     return (
         <div className={styles.personnels} style={{ maxWidth: "88%", margin: "0 auto" }}>
@@ -222,10 +170,23 @@ const Autorisations = () => {
                 />
 
                 <DataTable
-                    loading={loading}
+                    loading={loading || loadingPage}
                     columns={columns}
-                    dataSource={filteredConges.map((p) => ({ ...p, key: p.id }))}
+                    dataSource={conges.map((p) => ({ ...p, key: p.id }))}
                     rowSelection={rowSelection}
+                    pagination={{
+                        position: ["bottomCenter"],
+                        current: page,
+                        pageSize,
+                        total,
+                        showSizeChanger: true,
+                        pageSizeOptions: [10, 20, 50],
+                        showTotal: (t, [from, to]) => `${from}-${to} sur ${t}`,
+                        onChange: (p, size) => {
+                            if (size !== pageSize) setPageSize(size);
+                            else setPage(p);
+                        },
+                    }}
                 />
             </div>
 

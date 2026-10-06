@@ -191,6 +191,13 @@ export function useHeaderController({
   const openTab = () => navigate("/global/tableau_bord");
   const openHoraires = () => navigate("/global/horaires");
 
+  const openDashboard = () => {
+    if (!admin?.responsable?.idserv) return; // sécurité
+    navigate("/global/dashboard", {
+      state: { idrh: admin.responsable.idrh, idserv: admin.responsable.idserv },
+    });
+  };
+
   const openPresences = () => {
     if (!admin.responsable.idrh) return; // sécurité
     navigate("/global/fiche_presence", {
@@ -278,7 +285,7 @@ export function useHeaderController({
     handleLogout,
 
     openPerso, openResponsable, openService, openTab, openHoraires,
-    openPresences, openConge, openAutorisaion, openDiv, openType,
+    openDashboard, openPresences, openConge, openAutorisaion, openDiv, openType,
     openAssd, openAssdPerso, openInfo, openHisto,
 
     getOtherRoles,

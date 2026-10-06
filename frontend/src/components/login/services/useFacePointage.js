@@ -289,22 +289,57 @@ export const useFacePointage = () => {
   // HISTORIQUE DES POINTAGES
   // ============================================================
 
-  const fetchHistory = useCallback(async () => {
-    setHistoryLoading(true);
+  // silent : rafraîchit sans passer par l'état "chargement" (pas de squelette qui clignote).
+  // Retourne les données reçues (ou null en cas d'échec).
+  const fetchHistory = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setHistoryLoading(true);
     try {
       const wifiMacAddress = await getCachedMacAddress();
       if (!wifiMacAddress) {
         setHistory([]);
-        return;
+        return [];
       }
       const data = await authService.getFacialHistory(wifiMacAddress);
       setHistory(data);
+      return data;
     } catch (err) {
       console.error("Erreur chargement historique pointage :", err);
-      setHistory([]);
+      if (!silent) setHistory([]);
+      return null;
     } finally {
-      setHistoryLoading(false);
+      if (!silent) setHistoryLoading(false);
     }
+  }, []);
+
+  // Le serveur écrit l'entrée d'historique dans une tâche Celery APRÈS avoir répondu :
+  // un seul fetchHistory() juste après le pointage lit donc l'ancienne liste.
+  // On réinterroge à intervalles croissants jusqu'à voir apparaître la nouvelle entrée.
+  const lastHistoryIdRef = useRef(null);
+  const historyRunRef = useRef(0);
+
+  const refreshHistoryAfterPointage = useCallback(async () => {
+    const run = ++historyRunRef.current; // une nouvelle série annule la précédente
+    const previousTopId = lastHistoryIdRef.current;
+
+    for (const delay of [0, 800, 1600, 3000, 5000]) {
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      if (run !== historyRunRef.current) return;
+
+      const data = await fetchHistory({ silent: true });
+      if (run !== historyRunRef.current) return;
+
+      const topId = data?.[0]?.id ?? null;
+      if (topId !== null && topId !== previousTopId) return; // nouvelle entrée reçue
+    }
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    lastHistoryIdRef.current = history?.[0]?.id ?? null;
+  }, [history]);
+
+  // Une série en cours ne doit pas continuer après le démontage
+  useEffect(() => () => {
+    historyRunRef.current += 1;
   }, []);
 
   useEffect(() => {
@@ -664,7 +699,9 @@ export const useFacePointage = () => {
       }
 
       setModalOpen(true);
-      fetchHistory();
+      if (response.ok) {
+        refreshHistoryAfterPointage(); // l'historique n'affiche que les pointages réussis
+      }
     } catch (err) {
       if (err.name === "AbortError") return;
       console.error("Erreur pointage :", err);
