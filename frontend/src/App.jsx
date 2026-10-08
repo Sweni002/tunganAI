@@ -98,7 +98,7 @@ function AppContent() {
           ) : user.role === "admin" ? (
             <Navigate to="/global/service" replace />
           ) : user.role === "responsable" ? (
-            <Navigate to="/global/fiche_presence" replace />
+            <Navigate to="/global/dashboard" replace />
           ) : (
             <Navigate to="/global/historique" replace />
           )

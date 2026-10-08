@@ -10,7 +10,7 @@ import { AuthContext } from "./AuthContext";
 // Page d'accueil par défaut pour chaque rôle
 const ROLE_HOME = {
   admin: "/global/service",
-  responsable: "/global/fiche_presence",
+  responsable: "/global/dashboard",
   personnel: "/global/historique",
 };
 

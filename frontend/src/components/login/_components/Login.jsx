@@ -144,7 +144,7 @@ const Login = () => {
   // =====================================================
 
   if (selectedRole === "responsable") {
-    navigate("/global/fiche_presence", {
+    navigate("/global/dashboard", {
       replace: true,
       state: {
         idrh: selectedUser.id,
@@ -204,7 +204,7 @@ setUser(currentUser);
         replace: true,
       });
     } else if (role === "responsable") {
-      navigate("/global/fiche_presence", {
+      navigate("/global/dashboard", {
         replace: true,
         state: {
           idrh: user.id,
