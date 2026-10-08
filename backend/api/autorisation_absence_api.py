@@ -105,6 +105,101 @@ def get_autorisations_by_service(idserv):
     }), 200
 
 
+@bp.route("/stats/<int:idserv>", methods=["GET"])
+def get_stats_autorisations(idserv):
+    """Statistiques des autorisations d'absence d'UN service.
+
+    Filtres optionnels, identiques à la liste : date, start + end, q (recherche).
+    Réponse : total, états (en cours / à venir / terminées), demi-journées
+    (matin / après-midi / complète) et répartition par type d'autorisation.
+    Un responsable ne consulte que son service.
+    """
+    from datetime import date as _date
+    from flask import session
+    from sqlalchemy import case, func, or_
+
+    if session.get("role") == "responsable":
+        responsable = Responsables.query.get(session.get("responsable_id"))
+        if not responsable or responsable.idserv != idserv:
+            return jsonify({"error": "Accès refusé à ce service"}), 403
+
+    try:
+        date_unique = _parse_date_ou_none(request.args.get("date"))
+        debut = _parse_date_ou_none(request.args.get("start"))
+        fin = _parse_date_ou_none(request.args.get("end"))
+    except ValueError:
+        return jsonify({"error": "Format de date invalide. Utilisez AAAA-MM-JJ."}), 400
+
+    if debut and fin and fin < debut:
+        return jsonify({"error": "'end' doit être une date postérieure ou égale à 'start'."}), 400
+
+    def filtrer(query):
+        query = query.filter(AutorisationAbsence.idpers.in_(_personnels_du_service(idserv)))
+        if date_unique:
+            query = query.filter(AutorisationAbsence.date_absence == date_unique)
+        if debut:
+            query = query.filter(AutorisationAbsence.date_absence >= debut)
+        if fin:
+            query = query.filter(AutorisationAbsence.date_absence <= fin)
+
+        q = (request.args.get("q") or "").strip().lower()
+        if q:
+            motif = f"%{q}%"
+            query = query.join(Personnels, AutorisationAbsence.idpers == Personnels.idpers).filter(
+                or_(
+                    func.lower(Personnels.matricule).like(motif),
+                    func.lower(Personnels.nom).like(motif),
+                    func.lower(Personnels.prenom).like(motif),
+                    func.lower(AutorisationAbsence.motif).like(motif),
+                )
+            )
+        return query
+
+    aujourdhui = _date.today()
+    A = AutorisationAbsence
+
+    # États et demi-journées : UNE requête d'agrégation
+    ligne = filtrer(
+        db.session.query(
+            func.count(A.id),
+            func.sum(case((A.date_absence < aujourdhui, 1), else_=0)),
+            func.sum(case((A.date_absence > aujourdhui, 1), else_=0)),
+            func.sum(case((A.demi_journee == "matin", 1), else_=0)),
+            func.sum(case((A.demi_journee == "apres-midi", 1), else_=0)),
+            func.sum(case((A.demi_journee == "complete", 1), else_=0)),
+        )
+    ).one()
+
+    total = int(ligne[0] or 0)
+    terminees = int(ligne[1] or 0)
+    a_venir = int(ligne[2] or 0)
+
+    # Répartition par type (jointure sur le type, nom du type + abréviation)
+    types = filtrer(
+        db.session.query(TypeAutorisations.nomtype, TypeAutorisations.abbreviation, func.count(A.id))
+        .select_from(A)
+        .join(TypeAutorisations, A.idtype == TypeAutorisations.idtype)
+    ).group_by(TypeAutorisations.nomtype, TypeAutorisations.abbreviation).order_by(func.count(A.id).desc()).all()
+
+    return jsonify({
+        "idserv": idserv,
+        "total": total,
+        "etats": {
+            "en_cours": total - terminees - a_venir,
+            "a_venir": a_venir,
+            "terminees": terminees,
+        },
+        "demi_journees": {
+            "matin": int(ligne[3] or 0),
+            "apres_midi": int(ligne[4] or 0),
+            "complete": int(ligne[5] or 0),
+        },
+        "par_type": [
+            {"type": nom, "abreviation": abbr, "nombre": int(n)} for nom, abbr, n in types
+        ],
+    }), 200
+
+
 @bp.route('/par-date', methods=['GET'])
 def get_autorisations_par_date():
     date_str = request.args.get('date')

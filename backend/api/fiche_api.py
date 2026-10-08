@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, session
 from sqlalchemy import extract, DateTime, Date, func, or_
 from sqlalchemy.orm import joinedload
 from models import db, TypeAutorisations, Responsables, Services
@@ -251,6 +251,50 @@ def calculer_absences(pointages, role):
     }
 
 
+def compter_par_demi_journee(pointages, autorisations, role):
+    """Compteurs ENTIERS par demi-journée (matin / soir) : 1 matin = 1, 1 soir = 1.
+
+    Mêmes règles que calculer_retards / calculer_absences / calculer_absences_par_type
+    (le total en jours reste égal à (matin + soir) / 2).
+    """
+    c = {
+        "matin": {"retards": 0, "absences_non_justifiees": 0, "absences_justifiees": 0},
+        "soir": {"retards": 0, "absences_non_justifiees": 0, "absences_justifiees": 0},
+    }
+
+    for pt in pointages:
+        if pt.retard_matin and not pt.absence_matin:
+            c["matin"]["retards"] += 1
+        if pt.retard_soir and not pt.absence_soir:
+            c["soir"]["retards"] += 1
+
+        demi = pt.autorisation.demi_journee if pt.autorisation_id and pt.autorisation else None
+
+        if role == "surface" and pt.absence_unique:
+            if not pt.autorisation_id:
+                c["matin"]["absences_non_justifiees"] += 1
+                c["soir"]["absences_non_justifiees"] += 1
+            continue
+
+        if pt.absence_matin and demi not in ("matin", "complete"):
+            c["matin"]["absences_non_justifiees"] += 1
+        if pt.absence_soir and demi not in ("apres-midi", "complete"):
+            c["soir"]["absences_non_justifiees"] += 1
+
+    for a in autorisations:
+        if not a.idtype:
+            continue
+        if a.demi_journee == "complete":
+            c["matin"]["absences_justifiees"] += 1
+            c["soir"]["absences_justifiees"] += 1
+        elif a.demi_journee == "matin":
+            c["matin"]["absences_justifiees"] += 1
+        else:
+            c["soir"]["absences_justifiees"] += 1
+
+    return c
+
+
 def separer_motifs(autorisations):
     """Répartit les autorisations en repos / missions / autres."""
     repos, missions, autres = [], [], []
@@ -286,6 +330,7 @@ def construire_fiche(pers, div_nom, autorisations, pointages, conge_dates=None):
     total_retard_hms = format_minutes_to_hms(total_retard_minutes)
 
     fiche = {
+        "idpers": pers.idpers,
         "division": div_nom,
         "matricule": pers.matricule or "-",
         "nom": pers.nom or "-",
@@ -650,12 +695,15 @@ def fiche_assiduite_resume():
     annee = request.args.get("annee", type=int)
     idserv = request.args.get("idserv", type=int)
     iddiv = request.args.get("iddiv", type=int)
+    idpers = request.args.get("idpers", type=int)
     q = (request.args.get("q") or "").strip()
 
     if not mois or not annee or not (1 <= mois <= 12):
         return jsonify({"error": "Paramètres 'mois' et 'annee' requis."}), 400
 
     query = Personnels.query
+    if idpers:  # page « assiduité personnel » : un seul agent
+        query = query.filter(Personnels.idpers == idpers)
     if iddiv:
         query = query.filter(Personnels.iddiv == iddiv)
     if idserv is not None:
@@ -672,6 +720,10 @@ def fiche_assiduite_resume():
     non_justifiees = 0
     justifiees = 0
     absences_par_type = defaultdict(float)
+    demi = {
+        "matin": {"retards": 0, "absences_non_justifiees": 0, "absences_justifiees": 0},
+        "soir": {"retards": 0, "absences_non_justifiees": 0, "absences_justifiees": 0},
+    }
 
     # Lots : borne la mémoire et respecte la limite de 1000 éléments d'un IN Oracle
     for lot in _lots(list(roles)):
@@ -693,6 +745,11 @@ def fiche_assiduite_resume():
                 justifiees += t["nombre"]
                 absences_par_type[t["idtype"]] += t["nombre"]
 
+            par_demi = compter_par_demi_journee(pointages, autorisations, roles[idpers])
+            for moment in ("matin", "soir"):
+                for cle, n in par_demi[moment].items():
+                    demi[moment][cle] += n
+
     return jsonify({
         "mois": mois,
         "annee": annee,
@@ -704,10 +761,88 @@ def fiche_assiduite_resume():
         },
         "absences_non_justifiees": non_justifiees,
         "absences_justifiees": justifiees,
+        # Compteurs entiers : nombre de matins et de soirs (jamais de virgule)
+        "matin": demi["matin"],
+        "soir": demi["soir"],
         "absences_par_type": [
             {"idtype": k, "nombre": v} for k, v in sorted(absences_par_type.items())
         ],
     })
+
+
+@bp.route("/detail", methods=["GET"])
+def fiche_assiduite_detail():
+    """Détail du mois d'UN agent (fenêtre « info personnel + info d'assiduité »).
+
+    Paramètres : mois, annee (requis) ; idpers OU matricule.
+    Renvoie l'identité de l'agent, la fiche du mois (retards, absences avec leurs dates,
+    absences par type), les compteurs ENTIERS matin / soir et le détail des types.
+    Un responsable ne consulte que les agents de SON service.
+    """
+    mois = request.args.get("mois", type=int)
+    annee = request.args.get("annee", type=int)
+    idpers = request.args.get("idpers", type=int)
+    matricule = (request.args.get("matricule") or "").strip()
+
+    if not mois or not annee or not (1 <= mois <= 12):
+        return jsonify({"error": "Paramètres 'mois' et 'annee' requis."}), 400
+    if not idpers and not matricule:
+        return jsonify({"error": "idpers ou matricule requis."}), 400
+
+    query = Personnels.query.options(joinedload(Personnels.division))
+    pers = (
+        query.filter_by(idpers=idpers).first()
+        if idpers
+        else query.filter_by(matricule=matricule).first()
+    )
+    if not pers:
+        return jsonify({"error": "Personnel introuvable"}), 404
+
+    division = pers.division
+    service = Services.query.get(division.idserv) if division else None
+
+    # Contrôle d'accès : admin, l'agent lui-même, ou le responsable de son service
+    role_session = session.get("role")
+    autorise = role_session == "admin" or session.get("personnel_id") == pers.idpers
+    if not autorise and role_session == "responsable":
+        responsable = Responsables.query.get(session.get("responsable_id"))
+        autorise = bool(responsable and service and responsable.idserv == service.idserv)
+    if not autorise:
+        return jsonify({"error": "Accès refusé"}), 403
+
+    autorisations_par_pers, pointages_par_pers = precharger_donnees_mois([pers.idpers], mois, annee)
+    autorisations = autorisations_par_pers.get(pers.idpers, [])
+    pointages = pointages_par_pers.get(pers.idpers, [])
+
+    fiche = construire_fiche(pers, division.nom if division else "", autorisations, pointages)
+    demi = compter_par_demi_journee(pointages, autorisations, pers.role)
+
+    # Nom des types d'absence (la fiche ne contient que l'id et l'abréviation)
+    noms_types = {t.idtype: t.nomtype for t in TypeAutorisations.query.all()}
+    for t in fiche["absences_par_type"]:
+        t["nomtype"] = noms_types.get(t["idtype"])
+
+    return jsonify({
+        "mois": mois,
+        "annee": annee,
+        "personnel": {
+            "idpers": pers.idpers,
+            "matricule": pers.matricule,
+            "nom": pers.nom,
+            "prenom": pers.prenom,
+            "email": pers.email,
+            "numtel": pers.numtel,
+            "role": pers.role,
+            "image": pers.image,
+            "division": division.nom if division else None,
+            "service": service.nom if service else None,
+            "sigle": service.sigle if service else None,
+        },
+        "fiche": fiche,
+        "matin": demi["matin"],
+        "soir": demi["soir"],
+        "jours_pointes": len(pointages),
+    }), 200
 
 
 @bp.route("/all_personnel", methods=["GET"])

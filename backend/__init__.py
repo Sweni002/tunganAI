@@ -171,6 +171,15 @@ def create_app():
     from api.dashboard_api import bp as dashboard_bp
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
 
+    from api.jours_feries_api import bp as jours_feries_bp
+    app.register_blueprint(jours_feries_bp, url_prefix='/api/jours_feries')
+
+    from api.saisie_pointage_api import bp as saisie_pointage_bp
+    app.register_blueprint(saisie_pointage_bp, url_prefix='/api/pointage')
+
+    from api.pointage_detail_api import bp as pointage_detail_bp
+    app.register_blueprint(pointage_detail_bp, url_prefix='/api/pointage')
+
     # --- Scheduler (une seule instance) ---
     if ENABLE_SCHEDULER:
         scheduler.init_app(app)
