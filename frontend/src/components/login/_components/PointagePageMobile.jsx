@@ -35,7 +35,7 @@ const PointagePageMobile = ({
     modelsLoaded,
 }) => {
     return (
-        <div className={styles.loginWrapper} style={{ fontFamily: "'Roboto Mono', monospace" }}>
+        <div className={styles.loginWrapper} style={{ fontFamily: "'Poppins', sans-serif" }}>
             <Box
                 sx={{
                     width: "100%",
@@ -55,7 +55,7 @@ const PointagePageMobile = ({
                             fontSize: "0.7rem",
                             cursor: "pointer",
                             color: "rgb(255, 255, 255)",
-                            fontFamily: "'Roboto Mono', monospace",
+                            fontFamily: "'Poppins', sans-serif",
                             "&.Mui-selected": { color: "white", fontWeight: "bold" },
                         }}
                     />
@@ -66,7 +66,7 @@ const PointagePageMobile = ({
                             fontSize: "0.7rem",
                             cursor: "pointer",
                             color: "rgb(255, 255, 255)",
-                            fontFamily: "'Roboto Mono', monospace",
+                            fontFamily: "'Poppins', sans-serif",
                             "&.Mui-selected": { color: "white" },
                         }}
                     />

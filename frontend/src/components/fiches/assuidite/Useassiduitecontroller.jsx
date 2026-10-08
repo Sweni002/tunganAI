@@ -339,7 +339,7 @@ export function useAssiduiteController() {
     let cancelled = false;
     setLoadingResume(true);
 
-    const params = new URLSearchParams({ mois: moisAll, annee: anneeAll, idserv });
+    const params = new URLSearchParams({ mois: moisAll, annee: anneeAll, idserv, v: 3 }); // v=2 : réponse avec matin/soir
     if (serverQuery) params.set("q", serverQuery);
     if (selectedDivision) params.set("iddiv", selectedDivision);
 

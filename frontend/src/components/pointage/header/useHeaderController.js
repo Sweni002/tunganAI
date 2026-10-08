@@ -207,6 +207,7 @@ export function useHeaderController({
 
   const openConge = () => navigate("/global/autorisation");
   const openAutorisaion = () => navigate("/global/autorisation_sortie");
+  const openJoursFeries = () => navigate("/global/jours_feries");
   const openDiv = () => navigate("/global/division");
   const openType = () => navigate("/global/type");
 
@@ -286,7 +287,7 @@ export function useHeaderController({
 
     openPerso, openResponsable, openService, openTab, openHoraires,
     openDashboard, openPresences, openConge, openAutorisaion, openDiv, openType,
-    openAssd, openAssdPerso, openInfo, openHisto,
+    openAssd, openAssdPerso, openInfo, openHisto, openJoursFeries,
 
     getOtherRoles,
 

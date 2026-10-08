@@ -66,7 +66,7 @@ const ProcessingBackdrop = ({ open, step = 0 }) => {
         <Fade in key={step} timeout={400}>
           <Typography
             sx={{
-              fontFamily: "'Roboto Mono', monospace",
+              fontFamily: "'Poppins', sans-serif",
               fontSize: { xs: "0.85rem", sm: "1rem" },
               fontWeight: 600,
               letterSpacing: 0.5,
@@ -80,7 +80,7 @@ const ProcessingBackdrop = ({ open, step = 0 }) => {
             qu'il n'a pas besoin de fixer l'écran pendant tout le traitement */}
         <Typography
           sx={{
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
             fontSize: { xs: "0.7rem", sm: "0.8rem" },
             color: "rgba(255,255,255,0.6)",
             mt: 1,
@@ -211,7 +211,7 @@ export const PointageActionBar = ({
                       color: "white",
                       fontWeight: "bold",
                       fontSize: isLargeScreen ? "0.96rem" : "0.7rem",
-                      fontFamily: "'Roboto Mono', monospace",
+                      fontFamily: "'Poppins', sans-serif",
                     }}
                   >
                     VÉRIFICATION
@@ -228,7 +228,7 @@ export const PointageActionBar = ({
                   />
                   <span
                     style={{
-                      fontFamily: "'Roboto Mono', monospace",
+                      fontFamily: "'Poppins', sans-serif",
                       fontSize: isLargeScreen ? "0.96rem" : "0.7rem",
                     }}
                   >
@@ -293,7 +293,7 @@ const PointageView = ({
             zIndex: 10000,
             color: "white",
             flexDirection: "column",
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
           }}
         >
           <span className={styles.loader2}></span>
@@ -338,7 +338,7 @@ const PointageView = ({
             zIndex: 10000,
             color: "white",
             flexDirection: "column",
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
           }}
         >
           <span className={styles.loader2}></span>
@@ -400,7 +400,7 @@ const PointageView = ({
         onClose={onCloseSnackbar}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         sx={{
-          fontFamily: "'Roboto Mono', monospace",
+          fontFamily: "'Poppins', sans-serif",
           position: "absolute",
           top: isLargeScreen ? 16 : 0,
           left: isLargeScreen ? "50%" : 0,
@@ -415,7 +415,7 @@ const PointageView = ({
           onClose={onCloseSnackbar}
           sx={{
             width: "100%",
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
             fontSize: isLargeScreen ? "0.96rem" : "0.7rem",
           }}
         >
@@ -443,7 +443,7 @@ const PointageView = ({
           />
           <Typography
             variant={isLargeScreen ? "h7" : "h9"}
-            sx={{ mt: 3, fontFamily: "'Roboto Mono', monospace" }}
+            sx={{ mt: 3, fontFamily: "'Poppins', sans-serif" }}
           >
             {modalMessage}
           </Typography>
@@ -460,7 +460,7 @@ const PointageView = ({
               p: 1.5,
               letterSpacing: 2,
               fontWeight: "bold",
-              fontFamily: "'Roboto Mono', monospace",
+              fontFamily: "'Poppins', sans-serif",
             }}
           >
             ok

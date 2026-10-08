@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
@@ -14,6 +14,8 @@ import MatriculeFilter from "./components/MatriculeFilter";
 import ExportMenu from "./components/ExportMenu";
 import AssiduiteTable from "./components/AssiduiteTable";
 import AssiduiteSummary from "./components/AssiduiteSummary";
+import AssiduiteDetailModal from "./components/AssiduiteDetailModal";
+import { useAssiduiteDetail } from "./hooks/useAssiduiteDetail";
 import dayjs from "dayjs";
 import RowActionsMenu from "./components/RowActionsMenu";
 import ExportSnackbar from "./components/ExportSnackbar";
@@ -30,6 +32,17 @@ const Assiduites = () => {
     return () => document.body.classList.remove("m3x-active");
   }, []);
   const { columns } = buildAssiduiteColumns(c.types);
+
+  // Détail d'un agent (clic sur une ligne) : identité + assiduité du mois affiché
+  const [detailRow, setDetailRow] = useState(null);
+  const { detail, loading: detailLoading, error: detailError } = useAssiduiteDetail({
+    idpers: detailRow?.idpers,
+    matricule: detailRow?.idpers ? undefined : detailRow?.matricule, // anciennes réponses en cache : pas d'idpers
+    mois: c.moisAll,
+    annee: c.anneeAll,
+  });
+  const handleRowClick = useCallback((row) => setDetailRow(row), []);
+  const closeDetail = useCallback(() => setDetailRow(null), []);
 
   // Passe au mois précédent / suivant (même format que MonthFilter)
   const shiftMonth = (delta) => {
@@ -137,6 +150,7 @@ const Assiduites = () => {
               page={c.page}
               pageSize={c.pageSize}
               total={c.total}
+              onRowClick={handleRowClick}
               onPageChange={(p, size) => {
                 if (size !== c.pageSize) c.setPageSize(size);
                 else c.setPage(p);
@@ -212,6 +226,7 @@ const Assiduites = () => {
               page={c.page}
               pageSize={c.pageSize}
               total={c.total}
+              onRowClick={handleRowClick}
               onPageChange={(p, size) => {
                 if (size !== c.pageSize) c.setPageSize(size);
                 else c.setPage(p);
@@ -220,6 +235,14 @@ const Assiduites = () => {
           </div>
         </>
       )}
+
+      <AssiduiteDetailModal
+        open={Boolean(detailRow)}
+        onClose={closeDetail}
+        detail={detail}
+        loading={detailLoading}
+        error={detailError}
+      />
 
       <RowActionsMenu
         menuAnchor={c.menuAnchor}

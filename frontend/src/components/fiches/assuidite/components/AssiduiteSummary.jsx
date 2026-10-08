@@ -11,12 +11,14 @@ export default function AssiduiteSummary({ resume, loading }) {
   const r = resume || {};
   const nonJust = r.absences_non_justifiees ?? 0;
   const dash = loading && !resume ? <Skeleton.Input active size="small" style={{ width: 60 }} /> : null;
+  const matin = r.matin || {};
+  const soir = r.soir || {};
 
   const kpis = [
     { key: "agents", tone: "warn2", icon: "fa-solid fa-users", label: "Agents", value: dash ?? r.agents ?? 0, hint: "Selon vos filtres" },
-    { key: "retards", tone: "warn", icon: "fa-regular fa-clock", label: "Retards", value: dash ?? r.retards?.nombre ?? 0, hint: `Volume : ${fmtMin(r.retards?.total_minutes ?? 0)}` },
-    { key: "nonjust", tone: "danger", icon: "fa-solid fa-user-xmark", label: "Absences non justifiées", value: dash ?? nonJust, hint: nonJust > 0 ? "À régulariser" : "Rien à signaler" },
-    { key: "just", tone: "info", icon: "fa-solid fa-user-check", label: "Absences justifiées", value: dash ?? r.absences_justifiees ?? 0, hint: "Jours valables" },
+    { key: "retards", tone: "warn", icon: "fa-regular fa-clock", label: "Retards", split: { matin: matin.retards ?? 0, soir: soir.retards ?? 0 }, hint: `Volume : ${fmtMin(r.retards?.total_minutes ?? 0)}` },
+    { key: "nonjust", tone: "danger", icon: "fa-solid fa-user-xmark", label: "Absences non justifiées", split: { matin: matin.absences_non_justifiees ?? 0, soir: soir.absences_non_justifiees ?? 0 }, hint: nonJust > 0 ? "À régulariser" : "Rien à signaler" },
+    { key: "just", tone: "info", icon: "fa-solid fa-user-check", label: "Absences justifiées", split: { matin: matin.absences_justifiees ?? 0, soir: soir.absences_justifiees ?? 0 }, hint: "Demi-journées valables" },
   ];
 
   return (
@@ -28,8 +30,21 @@ export default function AssiduiteSummary({ resume, loading }) {
             <span className={styles.kpiIcon}>
               <i className={k.icon} aria-hidden="true"></i>
             </span>
-            <span className={styles.kpiValue}>{k.value}</span>
             <span className={styles.kpiLabel}>{k.label}</span>
+            {k.split ? (
+              <div className={styles.kpiSplit}>
+                <div className={styles.kpiHalf}>
+                  <span className={styles.kpiHalfLabel}><i className="fa-solid fa-sun" aria-hidden="true"></i>Matin</span>
+                  <span className={styles.kpiHalfValue}>{dash ?? k.split.matin}</span>
+                </div>
+                <div className={styles.kpiHalf}>
+                  <span className={styles.kpiHalfLabel}><i className="fa-solid fa-cloud-sun" aria-hidden="true"></i>Soir</span>
+                  <span className={styles.kpiHalfValue}>{dash ?? k.split.soir}</span>
+                </div>
+              </div>
+            ) : (
+              <span className={styles.kpiValue}>{k.value}</span>
+            )}
             <span className={styles.kpiHint}>{dash ? <Skeleton.Input active size="small" style={{ width: 90, height: 12, minWidth: 0 }} /> : k.hint}</span>
           </div>
         ))}

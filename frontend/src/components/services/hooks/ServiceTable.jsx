@@ -12,7 +12,7 @@ import { EditOutlined } from "@ant-design/icons";
 import styles from "./service.module.css";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 
-const FONT = "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif";
+const FONT = "'Poppins', 'Poppins', sans-serif";
 
 const renderPeriode = (horaires, entreeKey, sortieKey) => {
   if (!horaires) {

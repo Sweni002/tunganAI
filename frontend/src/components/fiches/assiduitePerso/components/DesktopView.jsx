@@ -7,6 +7,7 @@ import MonthFilter from "../components/MonthFilter";
 import { Spin } from "antd";
 import dayjs from "dayjs";
 import AssuiditePersoTable from "../components/AssuiditePersoTable";
+import AutorisationsDuJour from "../../common/AutorisationsDuJour";
 
 const DesktopView = ({ c, columns }) => {
   // Passe au mois précédent / suivant en gardant le même format que MonthFilter
@@ -73,6 +74,8 @@ const DesktopView = ({ c, columns }) => {
       </div>
 
       <DashboardHero c={c} />
+
+      <AutorisationsDuJour data={c.autorisationsJour} loading={c.loadingAutorisationsJour} />
 
       <div className={styles.cardTab} style={{ border: "none" }}>
         <div className={styles.sectionHead}>

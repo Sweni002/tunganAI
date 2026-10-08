@@ -18,6 +18,9 @@ export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSna
   const [pickerType, setPickerType] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [anchorEl2, setAnchorEl2] = useState(null);
+  // Filtre réellement appliqué à la liste (les champs de date ne sont que des brouillons) :
+  // sert aux statistiques serveur. {} = aucune restriction de date.
+  const [appliedFilter, setAppliedFilter] = useState({});
 
   const notify = (message, isError = false) => {
     setSnackMessage(message);
@@ -50,6 +53,10 @@ export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSna
       );
       const list = toList(res);
       setSelectedDate("");
+      setAppliedFilter({
+        start: dayjs(dateDebutFiltre).format("YYYY-MM-DD"),
+        end: dayjs(dateFinFiltre).format("YYYY-MM-DD"),
+      });
       setConges(list);
       notifyCount(list);
     } catch (err) {
@@ -61,6 +68,7 @@ export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSna
     setDateDebutFiltre("");
     setDateFinFiltre("");
     setSelectedDate("");
+    setAppliedFilter({});
     if (!idserv) return;
 
     try {
@@ -81,6 +89,7 @@ export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSna
       const list = toList(res);
       setDateDebutFiltre("");
       setDateFinFiltre("");
+      setAppliedFilter({ date: dayjs(date).format("YYYY-MM-DD") });
       setConges(list);
       notifyCount(list);
     } catch (err) {
@@ -107,6 +116,7 @@ export const useFilters = (setConges, setSnackMessage, setSnackError, setOpenSna
     selectedDate,
     setSelectedDate,
     pickerType,
+    appliedFilter,
     anchorEl,
     anchorEl2,
     handleFiltrerParDates,

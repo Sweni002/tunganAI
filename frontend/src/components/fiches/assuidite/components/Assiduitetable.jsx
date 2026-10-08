@@ -14,6 +14,7 @@ const AssiduiteTable = ({
   pageSize = 10,
   total = 0,
   onPageChange,
+  onRowClick,
 }) => {
   const rows = filteredPersonnels.map((p) => ({
     ...p,
@@ -41,6 +42,15 @@ const AssiduiteTable = ({
         columns={view.columns}
         dataSource={view.dataSource}
         rowClassName={() => styles.largeRow}
+        onRow={(record) => ({
+          onClick: (event) => {
+            if (!onRowClick || String(record.key).startsWith("sk-")) return;
+            // Ignore les clics sur les boutons, liens et cases à cocher
+            if (event.target.closest("button, a, .ant-checkbox-wrapper, .ant-table-selection-column")) return;
+            onRowClick(record);
+          },
+          style: onRowClick ? { cursor: "pointer" } : undefined,
+        })}
         onHeaderRow={() => ({ className: styles.largeHeader })}
       />
     </div>

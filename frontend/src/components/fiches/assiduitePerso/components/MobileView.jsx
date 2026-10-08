@@ -6,6 +6,7 @@ import MonthFilter from "./MonthFilter";
 import ExportButton from "./ExportButton";
 import FicheCardList from "./FicheCardList";
 import PageHeader from "../../../content/autorisations_absences/components/PageHeader";
+import AutorisationsDuJour from "../../common/AutorisationsDuJour";
 
 /**
  * Vue mobile (≤700px) de la fiche d'assiduité personnelle.
@@ -43,6 +44,10 @@ const MobileView = ({ c }) => {
           />
           <ExportButton loadingPdf1={c.loadingPdf1} exportExcel={c.exportExcel} />
         </div>
+      </div>
+
+      <div style={{ margin: "16px 0" }}>
+        <AutorisationsDuJour data={c.autorisationsJour} loading={c.loadingAutorisationsJour} />
       </div>
 
       <FicheCardList

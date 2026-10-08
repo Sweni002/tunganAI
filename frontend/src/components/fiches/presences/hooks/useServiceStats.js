@@ -10,7 +10,17 @@ const EMPTY_STATS = {
   absence_non_justifiee: 0,
   absence_justifiee: 0,
   taux_presence: 0,
+  matin: { presence: 0, retards: 0, absence_non_justifiee: 0, absence_justifiee: 0 },
+  soir: { presence: 0, retards: 0, absence_non_justifiee: 0, absence_justifiee: 0 },
 };
+
+// Compteurs entiers d'une demi-journée (jamais de virgule)
+const toHalfDay = (h) => ({
+  presence: Number(h?.presence ?? 0),
+  retards: Number(h?.retards ?? 0),
+  absence_non_justifiee: Number(h?.absence_non_justifiee ?? 0),
+  absence_justifiee: Number(h?.absence_justifiee ?? 0),
+});
 
 export function useStatsService({
   idserv,
@@ -33,6 +43,7 @@ export function useStatsService({
     const params = new URLSearchParams();
 
     params.set('idserv', String(idserv));
+    params.set('v', '3'); // forme de réponse avec matin / soir : évite l'ancien cache
 
     // =========================
     // DIVISION
@@ -90,6 +101,8 @@ export function useStatsService({
         taux_presence: Number(
           data?.taux_presence ?? 0
         ),
+        matin: toHalfDay(data?.matin),
+        soir: toHalfDay(data?.soir),
       });
 
     } catch (error) {

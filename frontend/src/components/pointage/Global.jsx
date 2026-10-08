@@ -405,14 +405,14 @@ const fabIcon =
             alignItems: "center",
             mb: 2,
             fontFamily:
-              " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+              " 'Poppins', 'Poppins', sans-serif",
           }}
         >
           <Typography
             variant="h2"
             sx={{
               fontFamily:
-                " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                " 'Poppins', 'Poppins', sans-serif",
             }}
           >
             Notifications
@@ -431,7 +431,7 @@ const fabIcon =
               sx={{
                 mt: 2,
                 fontFamily:
-                  "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                  "'Poppins', 'Poppins', sans-serif",
               }}
             >
               Aucune notification
@@ -479,7 +479,7 @@ const fabIcon =
                     fontSize: "0.8rem",
                     fontWeight: item.etat ? "normal" : "bold",
                     fontFamily:
-                      "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                      "'Poppins', 'Poppins', sans-serif",
                   }}
                 />
 

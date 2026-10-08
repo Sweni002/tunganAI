@@ -1247,8 +1247,8 @@ font-size: 0.65rem;
 }
 
 .sectionHead { width: 100%; padding: 0 4px; }
-.sectionHead h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #1f2d30; font-family: 'Poppins', system-ui, sans-serif; }
-.sectionHead p { margin: 4px 0 0; font-size: 0.78rem; color: #6b7a7e; font-family: 'Poppins', system-ui, sans-serif; }
+.sectionHead h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #1f2d30; font-family: 'Poppins', sans-serif; }
+.sectionHead p { margin: 4px 0 0; font-size: 0.78rem; color: #6b7a7e; font-family: 'Poppins', sans-serif; }
 
 /* Barre du haut : alignée avec le contenu, boutons de même hauteur */
 .topBar { padding: 0 4px; }
@@ -1297,7 +1297,7 @@ font-size: 0.65rem;
   border-radius: 999px;
   background: #1b6979;
   color: #fff;
-  font-family: 'Poppins', system-ui, sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;

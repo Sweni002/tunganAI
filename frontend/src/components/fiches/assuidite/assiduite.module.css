@@ -1266,7 +1266,7 @@ font-size: 0.65rem;
   font-size: 0.95rem;
   font-weight: 600;
   color: #1b6979;
-  font-family: 'Poppins', system-ui, sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 .filtresCard .scrollContainer,
 .filtresCard .cardDivision { margin-top: 0; max-width: 100%; animation: none; padding: 0; }
@@ -1310,7 +1310,7 @@ font-size: 0.65rem;
   height: 44px; padding: 0 20px 0 24px;
   border: none; border-radius: 999px;
   background: #1b6979; color: #fff;
-  font-family: 'Poppins', system-ui, sans-serif; font-size: 0.82rem; font-weight: 600;
+  font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 600;
   cursor: pointer;
   transition: background-color 200ms, transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1319,8 +1319,8 @@ font-size: 0.65rem;
 .exportBtn:disabled { opacity: 0.6; cursor: progress; }
 
 .sectionHead { width: 100%; padding: 0 4px; }
-.sectionHead h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #1f2d30; font-family: 'Poppins', system-ui, sans-serif; }
-.sectionHead p { margin: 4px 0 0; font-size: 0.78rem; color: #6b7a7e; font-family: 'Poppins', system-ui, sans-serif; }
+.sectionHead h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: #1f2d30; font-family: 'Poppins', sans-serif; }
+.sectionHead p { margin: 4px 0 0; font-size: 0.78rem; color: #6b7a7e; font-family: 'Poppins', sans-serif; }
 
 :global(body.m3x-active) .shadowedTable :global(.ant-table-tbody > tr > td) { padding: 28px 24px !important; }
 :global(body.m3x-active) .shadowedTable :global(.ant-table-thead > tr > th) { padding: 24px 24px !important; line-height: 1.5; }

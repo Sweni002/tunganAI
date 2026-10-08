@@ -79,7 +79,7 @@ export default function PageHeader({
                             fontWeight: 600,
                             color: "#1a1a2e",
                             margin: 0,
-                            fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            fontFamily: "'Poppins', 'Poppins', sans-serif",
                             letterSpacing: "-0.5px",
                         }}
                     >
@@ -91,7 +91,7 @@ export default function PageHeader({
                                 fontSize: isMobile ? "0.65rem" : "0.7rem",
                                 color: "#6b7280",
                                 margin: 0,
-                                fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                                fontFamily: "'Poppins', 'Poppins', sans-serif",
                             }}
                         >
                             {subtitle}
@@ -118,7 +118,7 @@ export default function PageHeader({
                         sx={{
                             padding: "12px 22px",
                             fontSize: isMobile ? "0.65rem" : "0.75rem",
-                            fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            fontFamily: "'Poppins', 'Poppins', sans-serif",
                             textTransform: "none",
                             borderRadius: "8px",
                             boxShadow:

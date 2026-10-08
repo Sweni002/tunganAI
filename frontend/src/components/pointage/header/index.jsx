@@ -73,6 +73,7 @@ const Header = ({
               openDashboard={c.openDashboard}
               openPresences={c.openPresences}
               openAssd={c.openAssd}
+              openJoursFeries={c.openJoursFeries}
             />
 
             <SearchDialog open={c.open} handleClose={c.handleClose} />
@@ -121,6 +122,7 @@ const Header = ({
           openDashboard={c.openDashboard}
           openPresences={c.openPresences}
           openAssd={c.openAssd}
+          openJoursFeries={c.openJoursFeries}
           openInfo={c.openInfo}
           openHisto={c.openHisto}
           openAssdPerso={c.openAssdPerso}

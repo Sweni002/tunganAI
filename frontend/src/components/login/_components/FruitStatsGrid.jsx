@@ -109,7 +109,7 @@ export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
           <div
             style={{
               color: "#94a3b8",
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: "'Poppins', sans-serif",
               fontSize: "0.75rem",
               fontWeight: 600,
               letterSpacing: "0.05em",
@@ -133,7 +133,7 @@ export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
             color: isPositive ? "#4ade80" : "#f87171",
             fontSize: "0.75rem",
             fontWeight: 700,
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
             transition: "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
@@ -163,7 +163,7 @@ export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
             alignItems: "flex-end",
             color: "rgba(148, 163, 184, 0.5)",
             fontSize: 10,
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
             height: height,
             flexShrink: 0,
           }}
@@ -366,7 +366,7 @@ export const StatCard = ({ title, data, strokeColor = "#3b82f6" }) => {
                 color: "#f8fafc",
                 fontSize: 11,
                 fontWeight: 700,
-                fontFamily: "'Roboto Mono', monospace",
+                fontFamily: "'Poppins', sans-serif",
                 whiteSpace: "nowrap",
                 pointerEvents: "none",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
@@ -525,7 +525,7 @@ export const CircularStatCard = ({ metric, strokeColor = "#38bdf8" }) => {
         <div
           style={{
             color: "#94a3b8",
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "'Poppins', sans-serif",
             fontSize: "0.75rem",
             fontWeight: 600,
             letterSpacing: "0.05em",
@@ -545,7 +545,7 @@ export const CircularStatCard = ({ metric, strokeColor = "#38bdf8" }) => {
             color: status.color,
             fontSize: "0.7rem",
             fontWeight: 700,
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
             letterSpacing: "0.02em",
             transition: "all 0.3s ease",
           }}
@@ -648,7 +648,7 @@ export const CircularStatCard = ({ metric, strokeColor = "#38bdf8" }) => {
                 color: "#f8fafc",
                 fontSize: "1.9rem",
                 fontWeight: 800,
-                fontFamily: "'Roboto Mono', monospace",
+                fontFamily: "'Poppins', sans-serif",
                 lineHeight: 1,
                 letterSpacing: "-0.02em",
                 transition: "all 0.3s ease",
@@ -661,7 +661,7 @@ export const CircularStatCard = ({ metric, strokeColor = "#38bdf8" }) => {
                 color: strokeColor,
                 fontSize: "0.95rem",
                 fontWeight: 700,
-                fontFamily: "'Roboto Mono', monospace",
+                fontFamily: "'Poppins', sans-serif",
                 marginLeft: 2,
                 opacity: progress,
                 transition: "opacity 0.5s ease",
@@ -684,7 +684,7 @@ export const CircularStatCard = ({ metric, strokeColor = "#38bdf8" }) => {
               padding: "6px 12px",
               color: "#f8fafc",
               fontSize: "0.72rem",
-              fontFamily: "'Roboto Mono', monospace",
+              fontFamily: "'Poppins', sans-serif",
               whiteSpace: "nowrap",
               pointerEvents: "none",
               boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
@@ -713,7 +713,7 @@ export const CircularStatCard = ({ metric, strokeColor = "#38bdf8" }) => {
           alignItems: "center",
           paddingTop: 12,
           borderTop: "1px solid rgba(255, 255, 255, 0.06)",
-          fontFamily: "'Roboto Mono', monospace",
+          fontFamily: "'Poppins', sans-serif",
           fontSize: "0.7rem",
         }}
       >
@@ -852,7 +852,7 @@ const FruitStatsGrid = ({ refreshKey = 0 }) => {
 
   if (error || !metrics) {
     return (
-      <div style={{ color: "#f87171", fontFamily: "'Roboto Mono', monospace", padding: 24 }}>
+      <div style={{ color: "#f87171", fontFamily: "'Poppins', sans-serif", padding: 24 }}>
         {error || "Aucune métrique disponible"}
       </div>
     );

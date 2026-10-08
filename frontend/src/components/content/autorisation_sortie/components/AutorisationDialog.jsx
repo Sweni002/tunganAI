@@ -135,7 +135,7 @@ const AutorisationDialog = ({
                   "& .MuiInputBase-input": {
                     padding: "17px 1px",
                     fontSize: "1rem",
-                    fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                    fontFamily: "'Poppins', sans-serif",
                   },
                 }}
               />

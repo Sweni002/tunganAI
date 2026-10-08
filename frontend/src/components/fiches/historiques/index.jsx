@@ -14,6 +14,9 @@ import { buildColumns, buildColumnsSurface } from './utils/columns';
 import FiltrePeriode from './components/FiltrePeriode';
 import Toolbar from './components/Toolbar';
 import HistoriqueTable from './components/HistoriqueTable';
+import HistoriqueSummary from './components/HistoriqueSummary';
+import { usePersonnelStats } from './hooks/usePersonnelStats';
+import { usePersonnelAutorisationsJour } from '../common/usePersonnelAutorisationsJour';
 
 // Réutilisés tels quels depuis le module presences/ (logiques génériques)
 import { useSnackbar } from '../presences/hooks/useSnackbar';
@@ -58,6 +61,21 @@ const Historique = () => {
 
     // --- Rafraîchissement temps réel (socket) ---
     useSocketRefresh(triggerRefresh);
+
+    // --- Résumé matin / soir de la période + autorisations d'aujourd'hui ---
+    const { stats, loading: loadingStats } = usePersonnelStats({
+        idpers,
+        selectedDate,
+        dateDebutFiltre,
+        dateFinFiltre,
+        fetchWithAuth,
+        refreshKey: personnels, // se recharge quand la liste change (socket, filtre)
+    });
+    const { data: autorisationsJour, loading: loadingAutorisations } = usePersonnelAutorisationsJour({
+        idpers,
+        fetchWithAuth,
+        refreshKey: personnels,
+    });
 
     // --- Export Excel ---
     const { downloadPDF, exportExcel, loadingPdf, loadingPdf1 } = useExportExcel({
@@ -143,6 +161,14 @@ const Historique = () => {
             <PageHeader
                 title="Historique"
                 subtitle="Historique des pointages et présences"
+            />
+
+            <HistoriqueSummary
+                stats={stats}
+                loadingStats={loadingStats}
+                isSurface={isSurface}
+                autorisations={autorisationsJour}
+                loadingAutorisations={loadingAutorisations}
             />
 
             <section className={styles.filtresCard} aria-label="Filtres">

@@ -114,5 +114,6 @@ export const useAutorisations = (admin, searchText = "") => {
     filters,
     applyFilters,
     reload,
+    reloadKey,
   };
 };

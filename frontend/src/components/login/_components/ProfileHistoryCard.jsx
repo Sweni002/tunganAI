@@ -124,7 +124,7 @@ export const HistoryDetailCard = ({ item, onClose, statusColors = DEFAULT_STATUS
         gap: 14,
         boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
         backdropFilter: "blur(12px)",
-        fontFamily: "'Roboto Mono', monospace",
+        fontFamily: "'Poppins', sans-serif",
         animation: `${scaleIn} 0.4s cubic-bezier(0.4, 0, 0.2, 1) both`,
         overflow: "hidden",
       }}
@@ -419,7 +419,7 @@ const ProfileHistoryCard = ({
         backdropFilter: "blur(12px)",
         border: "1px solid rgba(255, 255, 255, 0.06)",
         borderRadius: 16,
-        fontFamily: "'Roboto Mono', monospace",
+        fontFamily: "'Poppins', sans-serif",
         boxSizing: "border-box",
         padding: "24px 24px 28px 24px",
         overflow: "hidden",
@@ -457,7 +457,7 @@ const ProfileHistoryCard = ({
           <Typography
             sx={{
               color: "#f0f4f8",
-              fontFamily: "'Roboto Mono', monospace",
+              fontFamily: "'Poppins', sans-serif",
               fontSize: "1.05rem",
               fontWeight: 700,
               letterSpacing: "0.3px",
@@ -505,7 +505,7 @@ const ProfileHistoryCard = ({
           </div>
           <Typography
             sx={{
-              fontFamily: "'Roboto Mono', monospace",
+              fontFamily: "'Poppins', sans-serif",
               fontSize: "0.85rem",
               color: "rgba(255, 255, 255, 0.4)",
               letterSpacing: "0.5px",
@@ -515,7 +515,7 @@ const ProfileHistoryCard = ({
           </Typography>
           <Typography
             sx={{
-              fontFamily: "'Roboto Mono', monospace",
+              fontFamily: "'Poppins', sans-serif",
               fontSize: "0.7rem",
               color: "rgba(255, 255, 255, 0.15)",
               letterSpacing: "0.3px",
@@ -690,7 +690,7 @@ const ProfileHistoryCard = ({
                           borderRadius: "8px",
                           padding: "6px 12px",
                           fontSize: "0.7rem",
-                          fontFamily: "'Roboto Mono', monospace",
+                          fontFamily: "'Poppins', sans-serif",
                           color: "#e0e8f0",
                           boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                         },
@@ -742,7 +742,7 @@ const ProfileHistoryCard = ({
                         color: isSelected ? "#7fd8ff" : "rgba(255,255,255,0.5)",
                         fontSize: "0.82rem",
                         fontWeight: 600,
-                        fontFamily: "monospace",
+                        fontFamily: "'Poppins', sans-serif",
                         transition: "color 0.3s ease",
                         letterSpacing: "0.5px",
                       }}

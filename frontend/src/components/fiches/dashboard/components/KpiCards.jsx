@@ -40,6 +40,26 @@ export default function KpiCards({ overview, loading }) {
 
   const { kpis, tendances } = overview;
   const nd = (v) => (v === null || v === undefined);
+  const pct = (v) => `${v.toFixed(1).replace('.', ',')} %`;
+
+  // Taux fournis par le serveur ; calculés ici si une ancienne réponse en cache ne les contient pas
+  const attendus = kpis.presence + kpis.absences_non_justifiees + kpis.absences_justifiees;
+  const tauxRetard =
+    kpis.taux_retard ?? (kpis.presence ? Math.min((kpis.retards / kpis.presence) * 100, 100) : null);
+  const tauxAbsences =
+    kpis.taux_absences_non_justifiees ?? (attendus ? (kpis.absences_non_justifiees / attendus) * 100 : null);
+  const trendRetard =
+    tendances.taux_retard !== undefined ? (
+      <Trend value={tendances.taux_retard} unit="pts" goodWhen="down" />
+    ) : (
+      <Trend value={tendances.retards} unit="%" goodWhen="down" />
+    );
+  const trendAbsences =
+    tendances.taux_absences_non_justifiees !== undefined ? (
+      <Trend value={tendances.taux_absences_non_justifiees} unit="pts" goodWhen="down" />
+    ) : (
+      <Trend value={tendances.absences_non_justifiees} unit="%" goodWhen="down" />
+    );
 
   const cards = [
     {
@@ -67,20 +87,20 @@ export default function KpiCards({ overview, loading }) {
       tone: styles.toneLate,
       icon: 'fa-solid fa-hourglass-half',
       label: 'Retards',
-      value: kpis.retards,
-      render: (v) => formatJours(v),
-      hint: `${formatMinutes(kpis.minutes_retard)} cumulées`,
-      trend: <Trend value={tendances.retards} unit="%" goodWhen="down" />,
+      value: tauxRetard,
+      render: pct,
+      hint: `${formatJours(kpis.retards)} jour${kpis.retards > 1 ? 's' : ''} de retard · ${formatMinutes(kpis.minutes_retard)} cumulées`,
+      trend: trendRetard,
     },
     {
       key: 'absences',
       tone: styles.toneAbsent,
       icon: 'fa-solid fa-user-xmark',
       label: 'Absences non justifiées',
-      value: kpis.absences_non_justifiees,
-      render: (v) => formatJours(v),
-      hint: `+ ${formatJours(kpis.absences_justifiees)} justifiée${kpis.absences_justifiees > 1 ? 's' : ''}`,
-      trend: <Trend value={tendances.absences_non_justifiees} unit="%" goodWhen="down" />,
+      value: tauxAbsences,
+      render: pct,
+      hint: `${formatJours(kpis.absences_non_justifiees)} jour${kpis.absences_non_justifiees > 1 ? 's' : ''} · + ${formatJours(kpis.absences_justifiees)} justifiée${kpis.absences_justifiees > 1 ? 's' : ''}`,
+      trend: trendAbsences,
     },
   ];
 

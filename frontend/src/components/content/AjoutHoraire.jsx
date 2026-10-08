@@ -299,7 +299,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -312,7 +312,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -407,7 +407,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -420,7 +420,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -515,7 +515,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -528,7 +528,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -622,7 +622,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -635,7 +635,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -762,7 +762,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -775,7 +775,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -868,7 +868,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -881,7 +881,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -974,7 +974,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -987,7 +987,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}
@@ -1081,7 +1081,7 @@ setSelectedService("");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -1094,7 +1094,7 @@ setSelectedService("");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            " 'Poppins', 'Poppins', sans-serif",
                           fontSize: "0.8rem", // ← augmente la taille du texte
                         },
                       }}

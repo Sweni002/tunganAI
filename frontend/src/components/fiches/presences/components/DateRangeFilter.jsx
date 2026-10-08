@@ -49,7 +49,7 @@ export default function DateRangeFilter({
                 sx={{
                   mt: 1,
                   mb: 2,
-                  fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                  fontFamily: " 'Poppins', 'Poppins', sans-serif",
                   width: '100%',
                   '& .MuiInputBase-input': {
                     color: dateDebutFiltre ? '#000' : '#9e9e9e',
@@ -100,7 +100,7 @@ export default function DateRangeFilter({
                 sx={{
                   mt: 1,
                   mb: 2,
-                  fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                  fontFamily: " 'Poppins', 'Poppins', sans-serif",
                   width: '100%',
                   '& .MuiInputBase-input': {
                     color: dateFinFiltre ? '#000' : '#9e9e9e',
@@ -147,7 +147,7 @@ export default function DateRangeFilter({
               pl: 3,
               pr: 3,
               fontSize: '0.75rem',
-              fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: " 'Poppins', 'Poppins', sans-serif",
               '@media (max-width:1369px)': { py: 0.8 },
             }}
             onClick={onFiltrer}
@@ -165,7 +165,7 @@ export default function DateRangeFilter({
               pl: 3,
               pr: 3,
               fontSize: '0.75rem',
-              fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: " 'Poppins', 'Poppins', sans-serif",
               '@media (max-width:1369px)': { py: 0.8 },
             }}
             startIcon={<i className="fa-solid fa-eye-slash" style={{ fontSize: '0.9rem' }}></i>}
@@ -185,7 +185,7 @@ export default function DateRangeFilter({
                 pr: 3,
                 color: '#2DAC60',
                 fontSize: '0.75rem',
-                fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                fontFamily: " 'Poppins', 'Poppins', sans-serif",
               }}
               startIcon={loadingPdf ? <Spin size="small" /> : <i className="fa-solid fa-download" style={{ fontSize: '0.9rem' }}></i>}
             >
@@ -203,7 +203,7 @@ export default function DateRangeFilter({
                 borderBottomRightRadius: 13,
                 borderTopRightRadius: 13,
                 color: '#2DAC60',
-                fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                fontFamily: " 'Poppins', 'Poppins', sans-serif",
               }}
             >
               <i className="fa-solid fa-chevron-down" style={{ fontSize: '0.9rem' }}></i>

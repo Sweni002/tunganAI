@@ -29,8 +29,8 @@ import DeleteMacConfirmDialog from "./DeleteMacConfirmDialog";
 // Design system — Material 3 Expressive
 // ============================================================
 
-const FONT_PRIMARY = "'Inter', 'Poppins', system-ui, sans-serif";
-const FONT_MONO = "'Roboto Mono', 'Fira Code', monospace";
+const FONT_PRIMARY = "'Poppins', sans-serif";
+const FONT_MONO = "'Poppins', sans-serif";
 
 const THEME = {
     primary: "#3b82f6",

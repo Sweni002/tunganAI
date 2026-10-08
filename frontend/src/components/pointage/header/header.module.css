@@ -692,7 +692,7 @@
 }
 
 :global(.MuiMenuItem-root) {
-  font-family: "Roboto Mono", monospace !important;
+  font-family: 'Poppins', sans-serif !important;
   font-size: 0.9rem !important;
 }
 

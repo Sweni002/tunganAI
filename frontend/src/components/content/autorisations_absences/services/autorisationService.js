@@ -40,6 +40,17 @@ export const autorisationService = {
     return this.fetchWithAuth(`${API_URL}/api/autorisations/${idserv}?${query.toString()}`);
   },
 
+  // Statistiques du service (états, demi-journées, types), calculées côté serveur.
+  // params : { date, start, end, q } (valeurs vides ignorées)
+  async getStats(idserv, params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") query.set(k, String(v));
+    });
+    const suffixe = query.toString() ? `?${query.toString()}` : "";
+    return this.fetchWithAuth(`${API_URL}/api/autorisations/stats/${idserv}${suffixe}`);
+  },
+
   async getAutorisationsByDate(date, idserv) {
     const extra = idserv ? `&idserv=${idserv}` : "";
     return this.fetchWithAuth(

@@ -44,7 +44,7 @@ const Filters = ({
               sx={{
                 mt: 1,
                 mb: 2,
-                fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                fontFamily: "'Poppins', 'Poppins', sans-serif",
                 width: "100%",
                 "& .MuiInputBase-input": {
                   color: dateDebutFiltre ? "#000" : "#9e9e9e",
@@ -97,7 +97,7 @@ const Filters = ({
               sx={{
                 mt: 1,
                 mb: 2,
-                fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                fontFamily: "'Poppins', 'Poppins', sans-serif",
                 width: "100%",
                 "& .MuiInputBase-input": {
                   color: dateFinFiltre ? "#000" : "#9e9e9e",
@@ -143,7 +143,7 @@ const Filters = ({
               pl: 3,
               pr: 3,
               fontSize: "0.75rem",
-              fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: "'Poppins', 'Poppins', sans-serif",
               "@media (max-width:1369px)": {
                 py: 0.8,
               },
@@ -163,7 +163,7 @@ const Filters = ({
               pl: 3,
               pr: 3,
               fontSize: "0.75rem",
-              fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: "'Poppins', 'Poppins', sans-serif",
               "@media (max-width:1369px)": {
                 py: 0.8,
               },

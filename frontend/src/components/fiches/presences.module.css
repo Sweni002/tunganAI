@@ -796,7 +796,7 @@ letter-spacing: 0.4px;
   font-size: 0.95rem;
   font-weight: 600;
   color: #1b6979;
-  font-family: 'Poppins', system-ui, sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 .filtresCard .filtreContainer { margin-top: 0; margin-bottom: 0; max-width: 100%; animation: none; }
 .filtresCard .filtreGroup { max-width: 100%; gap: 32px; row-gap: 24px; }

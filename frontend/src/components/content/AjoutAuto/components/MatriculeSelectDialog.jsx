@@ -48,7 +48,7 @@ const MatriculeSelectDialog = ({
             "& .MuiInputBase-input": {
               padding: "17px 1px",
               fontSize: "1rem",
-              fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: "'Poppins', sans-serif",
               "@media (max-width:600px)": {
                 padding: "5px 0px !important",
               },
