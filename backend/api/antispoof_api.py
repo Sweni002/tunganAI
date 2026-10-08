@@ -70,6 +70,27 @@ image_cropper = CropImage()
 # os.listdir(MODEL_DIR) à chaque appel)
 MODEL_FILES = sorted(os.listdir(MODEL_DIR))
 
+# PERF : AntiSpoofPredict.predict() reconstruit le réseau et relit les poids
+# depuis le disque à CHAQUE appel. On charge ici chaque modèle une seule fois
+# (en mode eval) et on ne fait plus que de l'inférence dans predict_spoof.
+import torch
+import torch.nn.functional as F
+from src.data_io import transform as trans
+
+_to_tensor = trans.Compose([trans.ToTensor()])
+_LOADED_MODELS = {}
+for _name in MODEL_FILES:
+    model_test._load_model(os.path.join(MODEL_DIR, _name))
+    model_test.model.eval()
+    _LOADED_MODELS[_name] = model_test.model
+
+
+def _infer(model, patch):
+    """Inférence seule : le modèle est déjà chargé en mémoire."""
+    tensor = _to_tensor(patch).unsqueeze(0).to(model_test.device)
+    with torch.no_grad():
+        return F.softmax(model.forward(tensor), dim=1).cpu().numpy()
+
 # Verrou : les objets OpenCV DNN ne sont pas garantis thread-safe pour des
 # appels concurrents à predict()/get_bbox() sur la même instance. Si Flask
 # sert plusieurs requêtes en parallèle (threads), ce lock sérialise l'accès
@@ -117,7 +138,6 @@ def predict_spoof(image_path=None, image=None, device_id=0):
         prediction = np.zeros((1, conf.num_classes))
 
         for model_name in MODEL_FILES:
-            model_path = os.path.join(MODEL_DIR, model_name)
 
             h_input, w_input, model_type, scale = parse_model_name(model_name)
 
@@ -132,7 +152,7 @@ def predict_spoof(image_path=None, image=None, device_id=0):
 
             patch = image_cropper.crop(**params)
 
-            prediction += model_test.predict(patch, model_path)
+            prediction += _infer(_LOADED_MODELS[model_name], patch)
 
     label_index = np.argmax(prediction)
     score = float(prediction[0][label_index])

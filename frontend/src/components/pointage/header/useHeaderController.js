@@ -112,7 +112,7 @@ export function useHeaderController({
             state: { idpers: updatedUser?.personnel?.idpers },
           });
         } else if (role === "responsable") {
-          navigate("/global/fiche_presence", {
+          navigate("/global/dashboard", {
             replace: true,
             state: {
               idrh: updatedUser?.responsable?.idrh,
