@@ -6,6 +6,7 @@ import {
   CalendarBlankIcon,
   UserGearIcon,
   SquaresFourIcon,
+  CalendarCheckIcon,
 } from "@phosphor-icons/react";
 import { CalendarX, ClipboardText } from "@phosphor-icons/react";
 
@@ -98,6 +99,7 @@ const DesktopNav = ({
   openDashboard,
   openPresences,
   openAssd,
+  openJoursFeries,
 }) => {
   const isActive = (key) => (activeMenu === key ? styles.active : "");
 
@@ -291,6 +293,14 @@ const DesktopNav = ({
               >
                 <i className="fa-solid fa-chart-line"></i>
                 <span style={{ fontFamily: NAV_FONT }}>Fiche d'assiduités</span>
+              </li>
+
+              <li
+                onClick={() => handleClick("feries", openJoursFeries)}
+                className={isActive("feries")}
+              >
+                <CalendarCheckIcon size={20} weight="bold" />
+                <span style={{ fontFamily: NAV_FONT }}>Jours fériés</span>
               </li>
             </div>
           )}

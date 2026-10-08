@@ -1,0 +1,80 @@
+/* Carte « Autorisations aujourd'hui » — M3 Expressive */
+.card {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --primary: #1b6979;
+  --muted: #6b7a7e;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px 32px;
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 18px rgba(0, 0, 0, 0.06);
+  animation: rise 560ms var(--spring) both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.head { display: flex; align-items: center; gap: 16px; }
+.headIcon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: rgba(27, 105, 121, 0.1);
+  border-radius: 18px;
+  transition: border-radius 400ms var(--spring), transform 400ms var(--spring);
+}
+.card:hover .headIcon { border-radius: 50%; transform: rotate(-8deg) scale(1.06); }
+.title { margin: 0; font-size: 0.95rem; font-weight: 700; color: #1d2b2f; }
+.sub { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); text-transform: capitalize; }
+.count {
+  margin-left: auto;
+  min-width: 34px;
+  padding: 6px 12px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(27, 105, 121, 0.1);
+  border-radius: 999px;
+}
+
+.list { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #f4f8f9;
+  border-radius: 22px;
+  animation: rise 520ms var(--spring) both;
+  transition: transform 350ms var(--spring), border-radius 350ms var(--spring);
+}
+.item:hover { transform: translateY(-2px); border-radius: 28px 18px 28px 18px; }
+.item strong { font-size: 0.85rem; color: #1d2b2f; }
+.item p { margin: 6px 0 0; font-size: 0.78rem; color: var(--muted); }
+.itemIcon {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  color: var(--primary);
+  background: #fff;
+  border-radius: 14px;
+}
+
+.empty { display: flex; align-items: center; gap: 12px; margin: 0; padding: 4px 0; font-size: 0.85rem; color: var(--muted); }
+.empty i { color: #16805f; font-size: 1.1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .item { animation: none; }
+  .headIcon, .item { transition: none; }
+}

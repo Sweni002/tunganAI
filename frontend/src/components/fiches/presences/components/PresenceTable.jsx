@@ -15,6 +15,7 @@ export default function PresenceTable({
   hasMore,
   canGoPrev,
   pageIndex = 0,
+  onRowClick,
 }) {
   // Squelettes pendant le chargement (au lieu du spinner par-dessus le tableau)
   const view = useTableSkeleton({ loading, columns, dataSource });
@@ -30,6 +31,14 @@ export default function PresenceTable({
         dataSource={view.dataSource}
         rowKey={(record) => record.id ?? record.key}
         rowClassName={() => styles.largeRow}
+        onRow={(record) => ({
+          onClick: (event) => {
+            if (!onRowClick || String(record.key).startsWith('sk-')) return;
+            // Ignore les clics sur le menu d'actions, la case à cocher et les liens
+            if (event.target.closest('button, a, .ant-checkbox-wrapper, .ant-table-selection-column')) return;
+            onRowClick(record);
+          },
+        })}
         onHeaderRow={() => ({ className: styles.largeHeader })}
       />
 

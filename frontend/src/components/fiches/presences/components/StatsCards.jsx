@@ -29,15 +29,17 @@ export default function StatsCards({
     });
 
     const trendTotal = useTrend(stats.effectif);
-    const trendRetard = useTrend(stats.retards);
-    const trendPresent = useTrend(stats.presence);
-    const trendAbsent = useTrend(stats.absence_non_justifiee);
+    // Tendance calculée sur le total de demi-journées (matin + soir)
+    const { matin, soir } = stats;
+    const trendRetard = useTrend(matin.retards + soir.retards);
+    const trendPresent = useTrend(matin.presence + soir.presence);
+    const trendAbsent = useTrend(matin.absence_non_justifiee + soir.absence_non_justifiee);
 
     return (
         <Box
             sx={{
                 display: 'flex',
-                gap: 2,
+                gap: 3,
                 flexWrap: 'wrap',
                 mb: 2,
                 mt: 2,
@@ -62,7 +64,7 @@ export default function StatsCards({
                 iconBg="rgba(255, 165, 0, 0.12)"
                 iconColor="#FFA500"
                 label="Retard"
-                value={stats.retards}
+                split={{ matin: matin.retards, soir: soir.retards }}
                 trend={trendRetard}
                 positiveWhen="down"
             />
@@ -73,7 +75,7 @@ export default function StatsCards({
                 iconBg="rgba(45, 172, 96, 0.12)"
                 iconColor="#2DAC60"
                 label="Présent"
-                value={stats.presence}
+                split={{ matin: matin.presence, soir: soir.presence }}
                 trend={trendPresent}
                 positiveWhen="up"
             />
@@ -84,7 +86,7 @@ export default function StatsCards({
                 iconBg="rgba(229, 72, 77, 0.12)"
                 iconColor="#e5484d"
                 label="Absent non justifié"
-                value={stats.absence_non_justifiee}
+                split={{ matin: matin.absence_non_justifiee, soir: soir.absence_non_justifiee }}
                 trend={trendAbsent}
                 positiveWhen="down"
             />

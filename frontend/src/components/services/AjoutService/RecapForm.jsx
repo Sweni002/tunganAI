@@ -102,7 +102,7 @@ const RecapRow = ({ label, value, isEmpty }) => (
         fontWeight: isEmpty ? 400 : 500,
         color: isEmpty ? "#b5b5b5" : "#2c2c2c",
         fontStyle: isEmpty ? "italic" : "normal",
-        fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+        fontFamily: "'Poppins', sans-serif",
         textAlign: "right",
       }}
     >

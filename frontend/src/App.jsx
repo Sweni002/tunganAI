@@ -45,6 +45,8 @@ import Assiduites from './components/fiches/assuidite/index.jsx';
 import AssuiditePerso from './components/fiches/assiduitePerso/index.jsx';
 import Autorisations from './components/content/autorisations_absences/index.jsx';
 import AutorisationSortie from './components/content/autorisation_sortie/index.jsx';
+import JoursFeries from './components/content/jours_feries/index.jsx';
+import SaisiePointage from './components/content/saisie_pointage/index.jsx';
 import Personnels from './components/content/personnels/Personnels.jsx';
 import AjoutPerso from './components/content/ajout_perso/AjoutPerso.jsx';
 import AjoutAuto from './components/content/AjoutAuto/AjoutAuto.jsx';
@@ -170,6 +172,22 @@ function AppContent() {
           element={
             <RoleRoute roles={["admin", "responsable"]}>
               <AutorisationSortie />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="saisie_pointage"
+          element={
+            <RoleRoute roles={["responsable"]}>
+              <SaisiePointage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="jours_feries"
+          element={
+            <RoleRoute roles={["responsable"]}>
+              <JoursFeries />
             </RoleRoute>
           }
         />

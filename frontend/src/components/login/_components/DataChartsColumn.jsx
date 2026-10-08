@@ -25,13 +25,13 @@ const CARD_STYLE = {
   borderRadius: 12,
   padding: "14px 16px",
   marginBottom: 14,
-  fontFamily: "'Roboto Mono', monospace",
+  fontFamily: "'Poppins', sans-serif",
 };
 
 const CARD_TITLE_STYLE = {
   color: "#9fb8c9",
   fontSize: "0.72rem",
-  fontFamily: "'Roboto Mono', monospace",
+  fontFamily: "'Poppins', sans-serif",
   letterSpacing: "0.5px",
   marginBottom: 6,
 };

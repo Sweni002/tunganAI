@@ -1,0 +1,196 @@
+/* Page « Jours fériés » — complète sortie.module.css (cartes, tuiles, tableau) avec les éléments propres à la page. */
+.root {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --emph: cubic-bezier(0.2, 0, 0, 1);
+  --primary: #1b6979;
+  --muted: #6b7a7e;
+  --surface: #f4f8f9;
+  --line: #e3eaec;
+}
+
+/* ---------- Filtre de période (puces) ---------- */
+.filterChips { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.filterChip {
+  padding: 10px 20px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-radius 350ms var(--spring), transform 350ms var(--spring), background-color 200ms, color 200ms;
+}
+.filterChip:hover { transform: translateY(-2px); border-radius: 18px; }
+.filterChip:active { transform: scale(0.96); }
+.filterChip:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.filterChipOn { color: #fff; background: var(--primary); }
+
+/* ---------- Cellules ---------- */
+.dayBadge {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--primary);
+  background: rgba(27, 105, 121, 0.1);
+  border-radius: 18px;
+  transition: border-radius 400ms var(--spring), transform 400ms var(--spring);
+}
+tr:hover .dayBadge { border-radius: 50%; transform: rotate(-6deg) scale(1.05); }
+.dayBadge strong { font-size: 1.05rem; line-height: 1; }
+.dayBadge span { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.chipTotal { --c: #1b6979; }
+.chipMatin { --c: #1565c0; }
+.chipSoir { --c: #c75b00; }
+.actionsCell { display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Dialogue d'ajout / modification ---------- */
+.dialogPaper {
+  /* Le dialogue est rendu dans <body>, hors de .root : les variables doivent être redéfinies ici */
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --emph: cubic-bezier(0.2, 0, 0, 1);
+  --primary: #1b6979;
+  --muted: #6b7a7e;
+  --surface: #f4f8f9;
+  --line: #e3eaec;
+
+  border-radius: 36px !important;
+  box-shadow: 0 24px 64px rgba(16, 40, 46, 0.22) !important;
+  overflow: hidden;
+  animation: dialogIn 420ms var(--spring) both;
+}
+@keyframes dialogIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+.dHead { display: flex; align-items: center; gap: 20px; padding: 32px 36px 24px; border-bottom: 1px solid var(--line); }
+.dHeadIcon {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  color: #fff;
+  background: linear-gradient(160deg, #1b6979, #2a8497);
+  border-radius: 20px;
+  transition: border-radius 450ms var(--spring), transform 450ms var(--spring);
+}
+.dialogPaper:hover .dHeadIcon { border-radius: 50%; transform: rotate(-6deg) scale(1.05); }
+.dHeadText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.formTitle { margin: 0; font-size: 1.15rem; font-weight: 700; color: #1d2b2f; }
+.formSub { margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--muted); }
+.dClose {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: var(--surface);
+  border: 0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: border-radius 350ms var(--spring), transform 350ms var(--spring), background-color 200ms;
+}
+.dClose:hover { border-radius: 50%; background: #e8f0f2; transform: rotate(90deg); }
+.dClose:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+.dBody { display: flex; flex-direction: column; gap: 32px; padding: 32px 36px; overflow-y: auto; }
+.dFoot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 20px 36px 28px; border-top: 1px solid var(--line); background: #fbfdfd; }
+
+.fieldGroup { display: flex; flex-direction: column; gap: 12px; }
+.fieldLabel { font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+.dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+
+/* Un jour / plusieurs jours */
+.toggleGroup { display: inline-flex; padding: 6px; gap: 6px; background: var(--surface); border-radius: 999px; align-self: flex-start; }
+.toggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 250ms, color 250ms, transform 350ms var(--spring), box-shadow 250ms;
+}
+.toggleBtn:hover { transform: translateY(-1px); }
+.toggleBtn:active { transform: scale(0.96); }
+.toggleBtn:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.toggleOn { color: #fff; background: var(--primary); box-shadow: 0 4px 12px rgba(27, 105, 121, 0.28); }
+
+.checkRow { display: flex; align-items: center; gap: 8px; margin-top: -12px; font-size: 0.82rem; font-weight: 600; color: #1d2b2f; cursor: pointer; }
+.checkRow small { display: block; margin-top: 2px; font-size: 0.74rem; font-weight: 400; color: var(--muted); }
+
+/* Période */
+.segmented { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.segment {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--muted);
+  background: var(--surface);
+  border: 2px solid transparent;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: border-radius 350ms var(--spring), transform 350ms var(--spring), background-color 200ms, color 200ms, border-color 200ms;
+}
+.segment:hover { transform: translateY(-3px); border-radius: 30px 20px 30px 20px; }
+.segment:active { transform: scale(0.97); }
+.segment:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.segmentIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: #fff;
+  border-radius: 14px;
+  transition: border-radius 350ms var(--spring);
+}
+.segmentLabel { font-size: 0.82rem; font-weight: 600; }
+.segmentCheck { position: absolute; top: 32px; right: 22px; font-size: 1.1rem; line-height: 1; color: var(--primary); opacity: 0; transform: scale(0.4); transition: opacity 200ms, transform 350ms var(--spring); }
+.segmentOn { color: #1d2b2f; background: rgba(27, 105, 121, 0.08); border-color: var(--primary); }
+.segmentOn .segmentIcon { color: #fff; background: var(--primary); border-radius: 50%; }
+.segmentOn .segmentCheck { opacity: 1; transform: none; }
+
+/* Aperçu */
+.preview { display: flex; align-items: flex-start; gap: 16px; padding: 18px 22px; background: rgba(27, 105, 121, 0.08); border-radius: 24px; }
+.previewIcon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; color: var(--primary); background: #fff; border-radius: 12px; }
+.preview strong { font-size: 0.85rem; color: #14535f; }
+.preview p { margin: 4px 0 0; font-size: 0.78rem; color: var(--muted); }
+.errorBox { margin: 0; padding: 16px 20px; font-size: 0.8rem; color: #9e192b; background: #fdecee; border-radius: 20px; }
+.errorBox ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.formActions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding-top: 4px; }
+
+.confirm { display: flex; flex-direction: column; gap: 20px; padding: 36px 40px 28px; max-width: 460px; }
+.confirm p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+@media (max-width: 800px) {
+  .dHead { padding: 24px 22px 18px; }
+  .dBody { padding: 24px 22px; gap: 26px; }
+  .dFoot { padding: 16px 22px 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialogPaper { animation: none; }
+  .filterChip, .dayBadge, .segment, .toggleBtn, .dHeadIcon, .dClose { transition: none; }
+}

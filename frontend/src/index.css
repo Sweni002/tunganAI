@@ -1,8 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap');
 
+/* Police de l'application : Poppins partout (chargée dans index.html).
+   Roboto Mono n'est conservée que pour la barre de navigation desktop (voir plus bas). */
 * {
   padding: 0;
   margin: 0;
   box-sizing: border-box;
-  font-family: 'Roboto Mono', monospace;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* MUI et Ant Design posent leur propre police sur leurs composants */
+[class*="Mui"],
+[class*="ant-"] {
+  font-family: 'Poppins', sans-serif !important;
+}
+
+/* Barre de navigation desktop : police d'origine (hors icônes Font Awesome) */
+nav[aria-label="Navigation principale"],
+nav[aria-label="Navigation principale"] *:not(i):not([class*="fa-"]) {
+  font-family: 'Roboto Mono', monospace !important;
 }

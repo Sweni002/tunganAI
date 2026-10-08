@@ -21,7 +21,7 @@ const RecentHistoryCard = ({ items = [] }) => {
                 flexDirection: "column",
                 backgroundColor: "rgba(10, 15, 20, 0.55)",
                 borderLeft: "1px solid rgba(255,255,255,0.08)",
-                fontFamily: "'Roboto Mono', monospace",
+                fontFamily: "'Poppins', sans-serif",
             }}
         >
             <div
@@ -33,7 +33,7 @@ const RecentHistoryCard = ({ items = [] }) => {
                 <Typography
                     sx={{
                         color: "#e8f6f8",
-                        fontFamily: "'Roboto Mono', monospace",
+                        fontFamily: "'Poppins', sans-serif",
                         fontSize: "1rem",
                         fontWeight: 600,
                         letterSpacing: "0.5px",
@@ -54,7 +54,7 @@ const RecentHistoryCard = ({ items = [] }) => {
                     <Typography
                         sx={{
                             color: "rgba(255,255,255,0.45)",
-                            fontFamily: "'Roboto Mono', monospace",
+                            fontFamily: "'Poppins', sans-serif",
                             fontSize: "0.8rem",
                             textAlign: "center",
                             mt: 4,

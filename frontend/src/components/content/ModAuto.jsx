@@ -477,7 +477,7 @@ navigate("/global/autorisation");
                     padding: "8px 1px",
                     fontSize: "0.9rem",
                     fontFamily:
-                      "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                      "'Poppins', sans-serif",
                     "@media (max-width:600px)": {
                       padding: "5px 0px !important",
                     },
@@ -632,7 +632,7 @@ navigate("/global/autorisation");
                     padding: "8px 1px",
                     fontSize: "0.9rem",
                     fontFamily:
-                      "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                      "'Poppins', sans-serif",
                     "@media (max-width:600px)": {
                       padding: "5px 0px !important",
                     },
@@ -691,7 +691,7 @@ navigate("/global/autorisation");
                       mt: 1,
                       mb: 2,
                       fontFamily:
-                        " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                        " 'Poppins', 'Poppins', sans-serif",
 
                       width: "100%",
                       "& .MuiInputBase-input": {
@@ -704,7 +704,7 @@ navigate("/global/autorisation");
                       },
                       "& .MuiInputLabel-root": {
                         fontFamily:
-                          "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          "'Poppins', sans-serif",
                       },
                     }}
                     InputLabelProps={{
@@ -783,7 +783,7 @@ navigate("/global/autorisation");
                         mt: 1,
                         mb: 2,
                         fontFamily:
-                          " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                          " 'Poppins', 'Poppins', sans-serif",
 
                         width: "100%",
                         "& .MuiInputBase-input": {
@@ -796,7 +796,7 @@ navigate("/global/autorisation");
                         },
                         "& .MuiInputLabel-root": {
                           fontFamily:
-                            "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                            "'Poppins', sans-serif",
                         },
                       }}
                       InputLabelProps={{
@@ -1005,7 +1005,7 @@ navigate("/global/autorisation");
               "& .MuiInputBase-input": {
                 padding: "17px 1px",
                 fontSize: "1rem",
-                fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                fontFamily: "'Poppins', sans-serif",
                 "@media (max-width:600px)": {
                   padding: "5px 0px !important",
                 },

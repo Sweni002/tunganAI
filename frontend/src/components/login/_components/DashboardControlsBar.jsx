@@ -54,7 +54,7 @@ const ControlButton = ({ icon, label, activeColor, disabled, onClick, tooltip })
         color: activeTheme ? activeTheme.main : "#d1e4e8",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.4 : 1,
-        fontFamily: "'Roboto Mono', monospace",
+        fontFamily: "'Poppins', sans-serif",
         fontSize: "0.78rem",
         fontWeight: 600,
         letterSpacing: "0.5px",
@@ -90,7 +90,7 @@ const ControlButton = ({ icon, label, activeColor, disabled, onClick, tooltip })
       <Typography
         variant="caption"
         sx={{
-          fontFamily: "'Roboto Mono', monospace",
+          fontFamily: "'Poppins', sans-serif",
           fontSize: "0.72rem",
           textTransform: "uppercase",
           lineHeight: 1,
@@ -184,7 +184,7 @@ const DashboardControlsBar = ({
         <Typography
           sx={{
             color: "#8da8be",
-            fontFamily: "'Roboto Mono', monospace",
+            fontFamily: "'Poppins', sans-serif",
             fontSize: "0.72rem",
             fontWeight: 700,
             letterSpacing: "1.2px",
@@ -218,7 +218,7 @@ const DashboardControlsBar = ({
             <Typography
               sx={{
                 color: modelsLoaded ? "#a0b2c6" : "#ff9100",
-                fontFamily: "'Roboto Mono', monospace",
+                fontFamily: "'Poppins', sans-serif",
                 fontSize: "0.65rem",
               }}
             >

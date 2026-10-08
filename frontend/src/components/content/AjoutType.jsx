@@ -33,7 +33,7 @@ const inputSx = {
   "& .MuiInputBase-input": {
     padding: "8px 1px",
     fontSize: "0.9rem",
-    fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+    fontFamily: "'Poppins', sans-serif",
     "@media (max-width:600px)": {
       padding: "5px 0px !important",
     },

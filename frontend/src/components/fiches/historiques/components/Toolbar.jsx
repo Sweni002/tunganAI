@@ -36,7 +36,7 @@ export default function Toolbar({
               border: '1px solid #ebecee',
               textTransform: 'none',
               fontSize: '0.75rem',
-              fontFamily: "'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: "'Poppins', 'Poppins', sans-serif",
               '@media (max-width:1369px)': { py: 0.8 },
               '&:hover': { backgroundColor: 'rgba(27, 105, 121, 0.08)' },
             }}

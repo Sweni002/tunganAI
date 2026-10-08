@@ -80,6 +80,11 @@ export default function DashboardHero({ c }) {
   const initials = p ? `${(p.nom || "")[0] || ""}${(p.prenom || "")[0] || ""}`.toUpperCase() : "–";
   const mois = dayjs(c.selectedDate).locale("fr").format("MMMM YYYY");
 
+  // Nombres ENTIERS de matins / soirs (calculés par le serveur) : pas de virgule
+  const matin = c.resume?.matin;
+  const soir = c.resume?.soir;
+  const partage = (cle) => (matin && soir ? { split: { matin: matin[cle] ?? 0, soir: soir[cle] ?? 0 } } : {});
+
   const kpis = [
     {
       key: "retards",
@@ -88,6 +93,7 @@ export default function DashboardHero({ c }) {
       label: "Retards",
       value: retardNb,
       raw: retardNb,
+      ...partage("retards"),
       hint: retardNb > 0 ? "Voir le détail" : "Aucun retard",
       onClick: retardNb > 0 ? openRetards : undefined,
     },
@@ -106,6 +112,7 @@ export default function DashboardHero({ c }) {
       icon: "fa-solid fa-user-xmark",
       label: "Absences non justifiées",
       value: nonJustNb,
+      ...partage("absences_non_justifiees"),
       hint: nonJustNb > 0 ? "À régulariser" : "Rien à signaler",
     },
     {
@@ -114,7 +121,8 @@ export default function DashboardHero({ c }) {
       icon: "fa-solid fa-user-check",
       label: "Absences justifiées",
       value: justifNb,
-      hint: "Jours valables",
+      ...partage("absences_justifiees"),
+      hint: matin && soir ? "Demi-journées valables" : "Jours valables",
     },
   ];
 
@@ -153,10 +161,31 @@ export default function DashboardHero({ c }) {
             <span className={styles.kpiIcon}>
               <i className={k.icon} aria-hidden="true"></i>
             </span>
-            <span className={styles.kpiValue}>
-              <Counter value={k.value} format={k.format} />
-            </span>
             <span className={styles.kpiLabel}>{k.label}</span>
+            {k.split ? (
+              <span className={styles.kpiSplit}>
+                <span className={styles.kpiHalf}>
+                  <span className={styles.kpiHalfLabel}>
+                    <i className="fa-solid fa-sun" aria-hidden="true"></i>Matin
+                  </span>
+                  <span className={styles.kpiHalfValue}>
+                    <Counter value={k.split.matin} />
+                  </span>
+                </span>
+                <span className={styles.kpiHalf}>
+                  <span className={styles.kpiHalfLabel}>
+                    <i className="fa-solid fa-cloud-sun" aria-hidden="true"></i>Soir
+                  </span>
+                  <span className={styles.kpiHalfValue}>
+                    <Counter value={k.split.soir} />
+                  </span>
+                </span>
+              </span>
+            ) : (
+              <span className={styles.kpiValue}>
+                <Counter value={k.value} format={k.format} />
+              </span>
+            )}
             <span className={styles.kpiHint}>{k.hint}</span>
           </button>
         ))}

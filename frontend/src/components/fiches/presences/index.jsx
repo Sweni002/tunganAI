@@ -29,6 +29,8 @@ import RowActionsMenu from './components/RowActionsMenu';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
 import AppSnackbar from './components/AppSnackbar';
 import PageSkeleton from './components/PageSkeleton';
+import PointageDetailModal from './components/PointageDetailModal';
+import { usePointageDetail } from './hooks/usePointageDetail';
 import Collapse from '@mui/material/Collapse';
 import PageHeader from '../../content/autorisations_absences/components/PageHeader';
 
@@ -122,6 +124,16 @@ const Presences = () => {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [recordToDelete, setRecordToDelete] = useState(null);
     const [loadingSupp, setLoadingSupp] = useState(false);
+
+    // --- Détail d'un pointage (clic sur une ligne) ---
+    const [detailId, setDetailId] = useState(null);
+    const { detail, loading: detailLoading, error: detailError } = usePointageDetail({
+        idpointage: detailId,
+        fetchWithAuth,
+        refreshKey,
+    });
+    const handleRowClick = useCallback((record) => setDetailId(record.idpointage ?? record.key), []);
+    const closeDetail = useCallback(() => setDetailId(null), []);
 
     const handleMenuClick = useCallback((event, record) => {
         setMenuAnchor(event.currentTarget);
@@ -327,6 +339,7 @@ const Presences = () => {
                     setSearchText={setSearchText}
                     poppers={poppers}
                     onCreerFicheVide={creerPointagesVides}
+                    onSaisieManuelle={() => navigate('/global/saisie_pointage', { state: { date: selectedDate } })}
                     onExport={(type) => exportExcel(type, selectedDate)}
                     loadingPdf1={loadingPdf1}
                     menuExportJourAnchorEl={menuExportJourAnchorEl}
@@ -349,6 +362,7 @@ const Presences = () => {
                             canGoPrev={canGoPrev}
                             onNextPage={handleNextPage}
                             onPrevPage={handlePrevPage}
+                            onRowClick={handleRowClick}
                         />
                     </TabPanel>
 
@@ -363,6 +377,7 @@ const Presences = () => {
                             canGoPrev={canGoPrev}
                             onNextPage={handleNextPage}
                             onPrevPage={handlePrevPage}
+                            onRowClick={handleRowClick}
                         />
                     </TabPanel>
                 </div>
@@ -374,6 +389,14 @@ const Presences = () => {
                 onClose={handleMenuClose}
                 onModifier={handleModifierPointage}
                 onDemandeSuppression={() => setConfirmOpen(true)}
+            />
+
+            <PointageDetailModal
+                open={Boolean(detailId)}
+                onClose={closeDetail}
+                detail={detail}
+                loading={detailLoading && !detail}
+                error={detailError}
             />
 
             <AppSnackbar open={openSnack} message={snackMessage} onClose={closeSnack} />

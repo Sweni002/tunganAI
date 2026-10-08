@@ -34,7 +34,7 @@ const timeFieldSx = {
     "& .MuiInputBase-input": {
         padding: "8px 1px",
         fontSize: "0.9rem",
-        fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+        fontFamily: "'Poppins', sans-serif",
         cursor: "pointer",
         "@media (max-width:600px)": {
             padding: "5px 0px !important",
@@ -151,7 +151,7 @@ const TimeRangeField = React.memo(
                 <span
                     style={{
                         fontSize: "0.9rem",
-                        fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                        fontFamily: "'Poppins', sans-serif",
                         color: "#666",
                     }}
                 >

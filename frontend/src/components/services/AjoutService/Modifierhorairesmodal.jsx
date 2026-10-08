@@ -86,7 +86,7 @@ const timeFieldSx = {
   "& .MuiInputBase-input": {
     padding: "8px 1px",
     fontSize: "0.85rem",
-    fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+    fontFamily: "'Poppins', sans-serif",
     cursor: "pointer",
   },
   "& .MuiIconButton-root": {

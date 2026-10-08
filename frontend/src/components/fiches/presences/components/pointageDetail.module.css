@@ -1,0 +1,205 @@
+/* Modale « détail d'un pointage » — M3 Expressive : ressort, formes qui se transforment, beaucoup d'air. */
+.paper {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --emph: cubic-bezier(0.2, 0, 0, 1);
+  --primary: #1b6979;
+  --ok: #16805f;
+  --late: #b87800;
+  --abs: #c0353c;
+  --ink: #1d2b2f;
+  --muted: #6b7a7e;
+  --surface: #f4f8f9;
+  --line: #e3eaec;
+
+  position: relative;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 32px !important;
+  box-shadow: 0 24px 64px rgba(16, 40, 46, 0.22) !important;
+  animation: enter 460ms var(--spring) both;
+}
+.backdrop { backdrop-filter: blur(3px); background: rgba(16, 40, 46, 0.35) !important; }
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(24px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.body { display: flex; flex-direction: column; gap: 40px; padding: 40px 44px 44px; }
+
+/* ---------- Fermer ---------- */
+.close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: var(--surface);
+  border: 0;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: border-radius 350ms var(--spring), transform 350ms var(--spring), background-color 200ms, color 200ms;
+}
+.close:hover { border-radius: 50%; background: #e8f0f2; color: var(--ink); transform: rotate(90deg); }
+.close:active { transform: scale(0.9); }
+.close:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+/* ---------- En-tête ---------- */
+.head { display: flex; align-items: center; gap: 28px; padding-right: 56px; flex-wrap: wrap; }
+.avatar {
+  flex: none;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #fff;
+  font-size: 1.7rem;
+  font-weight: 700;
+  background: linear-gradient(160deg, #1b6979, #2a8497);
+  border-radius: 28px;
+  transition: border-radius 450ms var(--spring), transform 450ms var(--spring);
+}
+.paper:hover .avatar { border-radius: 50%; transform: rotate(-3deg) scale(1.03); }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.identity { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.name { margin: 0; font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.meta { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.sep { margin: 0 8px; }
+.headSide { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.date { font-size: 0.85rem; color: var(--muted); text-transform: capitalize; }
+
+/* ---------- Pastilles de statut ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 999px;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 12%, #fff);
+}
+.ok { --c: var(--ok); }
+.late { --c: var(--late); }
+.abs { --c: var(--abs); }
+.wait { --c: var(--muted); }
+
+/* ---------- Sections ---------- */
+.section { display: flex; flex-direction: column; gap: 20px; }
+.sectionTitle { margin: 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+
+.periode {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+  background: var(--surface);
+  border-radius: 28px;
+  animation: rise 520ms var(--spring) both;
+  transition: transform 350ms var(--spring), border-radius 350ms var(--spring), box-shadow 250ms var(--emph);
+}
+.periode:hover { transform: translateY(-4px); border-radius: 36px 24px 36px 24px; box-shadow: 0 10px 24px rgba(27, 105, 121, 0.12); }
+.periodeHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.periodeTitle { display: inline-flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1rem; }
+.periodeTitle i { color: var(--primary); }
+
+.horaires { display: flex; align-items: center; gap: 20px; }
+.horaire { display: flex; flex-direction: column; gap: 6px; }
+.horaire strong { font-size: 1.6rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.arrow { color: #b6c4c8; font-size: 0.9rem; }
+.label { font-size: 0.74rem; color: var(--muted); }
+
+.facts { display: flex; gap: 40px; margin: 0; padding-top: 20px; border-top: 1px solid var(--line); }
+.facts div { display: flex; flex-direction: column; gap: 4px; }
+.facts dt { font-size: 0.74rem; color: var(--muted); }
+.facts dd { margin: 0; font-weight: 600; }
+.textLate { color: var(--late); }
+
+/* ---------- Tuiles ---------- */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 24px;
+  background: var(--surface);
+  border-radius: 24px;
+  animation: rise 520ms var(--spring) both;
+  transition: transform 350ms var(--spring), border-radius 350ms var(--spring);
+}
+.tile:hover { transform: translateY(-3px); border-radius: 30px 20px 30px 20px; }
+.tile:active { transform: scale(0.97); }
+.tile strong { font-size: 1.35rem; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+.tileIcon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  color: var(--primary);
+  background: #fff;
+  border-radius: 12px;
+  transition: border-radius 400ms var(--spring), transform 400ms var(--spring);
+}
+.tile:hover .tileIcon { border-radius: 50%; transform: rotate(-8deg) scale(1.08); }
+.tile.late .tileIcon { color: var(--late); }
+
+/* ---------- Autorisations ---------- */
+.autoList { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.auto { display: flex; align-items: flex-start; gap: 18px; padding: 20px 24px; background: var(--surface); border-radius: 24px; }
+.auto strong { font-size: 0.9rem; }
+.auto p { margin: 6px 0 0; font-size: 0.82rem; color: var(--muted); }
+.autoIcon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: #fff;
+  border-radius: 14px;
+}
+
+/* ---------- Plages du service ---------- */
+.plages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.plage { display: flex; flex-direction: column; gap: 8px; padding: 20px 24px; border: 1px solid var(--line); border-radius: 24px; }
+.plage p { margin: 0; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
+/* ---------- Erreur / squelette ---------- */
+.errorBox { display: flex; align-items: center; gap: 16px; padding: 28px; color: var(--abs); background: #fdf0f0; border-radius: 24px; }
+.errorBox p { margin: 0; }
+.skel {
+  background: linear-gradient(90deg, #eef2f3 25%, #f7fafa 50%, #eef2f3 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 24px;
+}
+.skelHead { height: 88px; }
+.skelCard { height: 200px; }
+.skelRow { height: 110px; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+@media (max-width: 720px) {
+  .body { padding: 28px 22px 32px; gap: 32px; }
+  .grid2, .plages { grid-template-columns: 1fr; }
+  .headSide { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper, .periode, .tile, .skel { animation: none; }
+  .close, .avatar, .periode, .tile, .tileIcon { transition: none; }
+}

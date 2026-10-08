@@ -1,25 +1,21 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { Breadcrumb } from "antd";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Link from "@mui/material/Link";
-import Typography from "@mui/material/Typography";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../AuthContext";
 import { ThreeDot } from "react-loading-indicators";
 import Modal from "@mui/material/Modal";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 
-import styles from "./conge.module.css";
+import styles from "./sortie.module.css";
+import "../../fiches/presences/m3-expressive.css";
 import { getColumns } from "./constants/columns";
 import AutorisationDialog from "./components/AutorisationDialog";
 import { useFilters } from "./hooks/useFilters";
 import { useDelete } from "./hooks/useDelete";
-import Filters from "../autorisations_absences/components/Filters";
-import SearchBar from "../autorisations_absences/components/SearchBar";
-import DataTable from "../autorisations_absences/components/DataTable";
+import SortieFilters from "./components/SortieFilters";
+import SortieToolbar from "./components/SortieToolbar";
+import SortieTable from "./components/SortieTable";
+import SortieSummary from "./components/SortieSummary";
+import { useSortieStats } from "./hooks/useSortieStats";
 import DeleteDialog from "../autorisations_absences/components/DeleteDialog";
 import SnackbarNotification from "../autorisations_absences/components/SnackbarNotification";
 import { useAutorisationForm } from "./hooks/useAutorisationForm";
@@ -34,6 +30,12 @@ const AutorisationSortie = () => {
   const [admin, setAdmin] = useState(null);
   const [searchText, setSearchText] = useState("");
   const dateInputRef = useRef(null);
+
+  // Thème M3 Expressive (aussi pour les menus, dialogues et sélecteurs de date portalés)
+  useEffect(() => {
+    document.body.classList.add("m3x-active");
+    return () => document.body.classList.remove("m3x-active");
+  }, []);
 
   // États pour les notifications
   const [snackMessage, setSnackMessage] = useState("");
@@ -66,6 +68,7 @@ const AutorisationSortie = () => {
     handleFiltrerParDateUnique,
     handleOpenDatePicker,
     handleClosePicker,
+    appliedFilter,
   } = useFilters(setConges, setSnackMessage, setSnackError, setOpenSnack);
 
   // Hook pour la suppression
@@ -108,6 +111,13 @@ const AutorisationSortie = () => {
     handleValider,
     loadPersonnels,
   } = useAutorisationForm(admin, setConges, setSnackMessage, setSnackError, setOpenSnack);
+
+  // Statistiques serveur : refaites à chaque changement de liste (ajout, suppression, filtre)
+  const { stats, loading: loadingStats } = useSortieStats({
+    idserv: admin?.responsable?.idserv,
+    filtre: appliedFilter,
+    refreshKey: conges,
+  });
 
   // Récupération de l'admin
   useEffect(() => {
@@ -177,17 +187,6 @@ const AutorisationSortie = () => {
   // Colonnes du tableau
   const columns = getColumns(navigate, handleDeleteClick);
 
-  // Sélection des lignes
-  const rowSelection = {
-    onChange: (selectedRowKeys, selectedRows) => {
-      console.log("selectedRowKeys:", selectedRowKeys, "selectedRows:", selectedRows);
-    },
-    getCheckboxProps: (record) => ({
-      disabled: false,
-      name: record.nom,
-    }),
-  };
-
   if (loadingPage) {
     return (
       <div
@@ -225,8 +224,7 @@ const AutorisationSortie = () => {
   }
 
   return (
-    <div className={styles.personnels} style={{ maxWidth: "88%", margin: "0 auto" }}>
-      {/* Header avec styles inline - identique à Autorisations */}
+    <div className={styles.page}>
       <PageHeader
         title="Autorisations de sortie"
         subtitle="Gérez toutes les autorisations de sortie de votre équipe"
@@ -235,7 +233,9 @@ const AutorisationSortie = () => {
         onButtonClick={goAjout}
       />
 
-      <Filters
+      <SortieSummary stats={stats} loading={loadingStats} />
+
+      <SortieFilters
         dateDebutFiltre={dateDebutFiltre}
         setDateDebutFiltre={setDateDebutFiltre}
         dateFinFiltre={dateFinFiltre}
@@ -247,27 +247,25 @@ const AutorisationSortie = () => {
         handleFiltrerParDates={handleFiltrerParDates}
         handleResetFiltre={handleResetFiltre}
         idserv={admin?.responsable?.idserv}
-        isSpeciales={true}
       />
 
-      <div className={styles.cardTab} style={{ border: 'none', maxWidth: "95%" }}>
-        <SearchBar
+      <section className={styles.card} aria-label="Liste des autorisations">
+        <SortieToolbar
           selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
-          handleFiltrerParDateUnique={(date) => handleFiltrerParDateUnique(date, admin?.responsable?.idserv)}
+          onFiltrerParDate={(date) => handleFiltrerParDateUnique(date, admin?.responsable?.idserv)}
           searchText={searchText}
           setSearchText={setSearchText}
           dateInputRef={dateInputRef}
-          showAjoutButton={false}
+          count={filteredConges.length}
         />
 
-        <DataTable
+        <SortieTable
           loading={loading}
           columns={columns}
           dataSource={filteredConges.map((p) => ({ ...p, key: p.id }))}
-          rowSelection={rowSelection}
         />
-      </div>
+      </section>
 
       <DeleteDialog
         open={confirmOpen}

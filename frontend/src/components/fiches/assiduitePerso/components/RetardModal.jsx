@@ -57,7 +57,7 @@ const RetardModal = ({
                 pr: 3,
                 color: "#2DAC60",
                 fontSize: "0.75rem",
-                fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                fontFamily: " 'Poppins', 'Poppins', sans-serif",
                 "@media (max-width:1369px)": {
                   py: 0.8,
                 },

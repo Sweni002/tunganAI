@@ -1,0 +1,210 @@
+/* Page « Modifier un pointage » — M3 Expressive : ressort, formes qui se transforment, espaces généreux. */
+.page {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --emph: cubic-bezier(0.2, 0, 0, 1);
+  --primary: #1b6979;
+  --ok: #16805f;
+  --late: #b87800;
+  --abs: #c0353c;
+  --ink: #1d2b2f;
+  --muted: #6b7a7e;
+  --surface: #f4f8f9;
+  --line: #e3eaec;
+
+  max-width: 88%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 0 16px 56px;
+  color: var(--ink);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Agent ---------- */
+.agent {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 28px 32px;
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 18px rgba(0, 0, 0, 0.06);
+  animation: rise 560ms var(--spring) both;
+}
+.avatar {
+  flex: none;
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(160deg, #1b6979, #2a8497);
+  border-radius: 24px;
+  transition: border-radius 450ms var(--spring), transform 450ms var(--spring);
+}
+.agent:hover .avatar { border-radius: 50%; transform: rotate(-4deg) scale(1.04); }
+.agentText { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+.agentName { margin: 0; font-size: 1.15rem; font-weight: 700; }
+.agentMeta { margin: 0; font-size: 0.8rem; color: var(--muted); }
+.dateChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--primary);
+  background: rgba(27, 105, 121, 0.1);
+  border-radius: 999px;
+}
+
+/* ---------- Périodes ---------- */
+.sectionTitle { margin: 0 0 -12px 4px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+
+.period {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 32px;
+  background: #fff;
+  border-radius: 28px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 18px rgba(0, 0, 0, 0.06);
+  animation: rise 560ms var(--spring) 80ms both;
+  transition: transform 350ms var(--spring), border-radius 350ms var(--spring), box-shadow 250ms var(--emph), background-color 250ms;
+}
+.period:nth-child(2) { animation-delay: 150ms; }
+.period:hover { transform: translateY(-4px); border-radius: 36px 26px 36px 26px; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.12); }
+.isAbsent { background: #fdf6f6; }
+
+.periodHead { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.periodTitle { display: inline-flex; align-items: center; gap: 14px; font-size: 1rem; font-weight: 700; }
+.periodTitle i { color: var(--primary); }
+.absentToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 16px 4px 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 200ms, color 200ms;
+}
+.isAbsent .absentToggle { color: var(--abs); background: #fbe4e5; }
+
+.times { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.timeWrap { position: relative; }
+.timeField {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px 22px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid transparent;
+  border-radius: 22px;
+  cursor: pointer;
+  transition: border-radius 350ms var(--spring), transform 350ms var(--spring), border-color 200ms, background-color 200ms;
+}
+.timeField:hover { border-radius: 28px 18px 28px 18px; background: #eef3f4; transform: translateY(-2px); }
+.timeField:active { transform: scale(0.97); }
+.timeField:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.timeField i { position: absolute; right: 22px; bottom: 22px; color: #9db2b7; }
+.timeLabel { font-size: 0.74rem; font-weight: 600; color: var(--muted); }
+.timeValue { font-size: 1.7rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: #b6c4c8; }
+.filled .timeValue { color: var(--ink); }
+.filled { border-color: rgba(27, 105, 121, 0.18); }
+.clear {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: #fff;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-radius 300ms var(--spring), transform 300ms var(--spring), color 200ms;
+}
+.clear:hover { border-radius: 50%; color: var(--abs); transform: rotate(90deg); }
+.clear:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.hint { margin: 0; font-size: 0.76rem; color: var(--abs); }
+
+/* ---------- Actions ---------- */
+.actions { display: flex; justify-content: flex-end; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* ---------- Sélecteur d'heure ---------- */
+.pickerPaper {
+  min-width: 380px;
+  border-radius: 36px !important;
+  box-shadow: 0 24px 64px rgba(16, 40, 46, 0.22) !important;
+  overflow: hidden;
+  animation: pickerIn 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes pickerIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+.picker { display: flex; flex-direction: column; align-items: stretch; gap: 32px; padding: 40px 40px 32px; }
+.pickerTitle { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1d2b2f; }
+
+.pickerDisplay { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pickerColon { font-size: 3rem; font-weight: 600; line-height: 1; color: #b6c4c8; }
+.pickerPart {
+  min-width: 96px;
+  padding: 14px 18px;
+  font-family: inherit;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #6b7a7e;
+  background: #f4f8f9;
+  border: 0;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: border-radius 350ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 200ms, color 200ms, transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pickerPart:hover { transform: translateY(-2px); }
+.pickerPart:active { transform: scale(0.96); }
+.pickerPart:focus-visible { outline: 3px solid #1b6979; outline-offset: 2px; }
+.partActive { color: #fff; background: #1b6979; border-radius: 32px 20px 32px 20px; }
+
+.pickerClock { display: flex; justify-content: center; padding: 8px 0; }
+.pickerActions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding-top: 8px; }
+
+@media (max-width: 800px) {
+  .page { max-width: 100%; }
+  .grid { grid-template-columns: 1fr; }
+  .period { padding: 24px 20px; }
+  .agent { padding: 22px 20px; }
+  .actions { justify-content: stretch; }
+  .actions > button { flex: 1; }
+  .picker { padding: 28px 20px 24px; }
+  .pickerPaper { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent, .period, .pickerPaper { animation: none; }
+  .avatar, .period, .timeField, .clear { transition: none; }
+}

@@ -242,7 +242,7 @@ setUser(currentUser);
   };
 
   return (
-    <div className={styles.loginWrapper} style={{ fontFamily: "'Roboto Mono', monospace" }}>
+    <div className={styles.loginWrapper} style={{ fontFamily: "'Poppins', sans-serif" }}>
       <LoginForm
         nom={nom}
         setNom={setNom}

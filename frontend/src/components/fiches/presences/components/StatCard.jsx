@@ -1,27 +1,18 @@
 import React, { useEffect } from 'react';
 import { Box, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { Sun, Sunset, TrendingDown, TrendingUp } from 'lucide-react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { Skeleton } from 'antd';
 
+const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+
+/** Nombre entier animé (on compte des demi-journées : jamais de virgule). */
 const AnimatedNumber = ({ value }) => {
-    // On convertit la valeur en nombre, avec une valeur par défaut de 0
-    const numericValue = parseFloat(value) || 0;
+    const numericValue = Math.round(Number(value) || 0);
 
-    // Spring configuration (smooth transition)
-    const spring = useSpring(0, {
-        mass: 0.8,
-        stiffness: 75,
-        damping: 15
-    });
-
-    // On utilise useTransform pour formater le nombre
-    const display = useTransform(spring, (latest) => {
-        // toFixed(1) garde une décimale
-        // .replace(/\.0$/, '') supprime le .0 si le nombre est entier (ex: 5.0 -> 5)
-        return latest.toFixed(1).replace(/\.0$/, '');
-    });
+    const spring = useSpring(0, { mass: 0.8, stiffness: 75, damping: 15 });
+    const display = useTransform(spring, (latest) => Math.round(latest).toString());
 
     useEffect(() => {
         spring.set(numericValue);
@@ -35,7 +26,56 @@ const M3_RISE = keyframes`
   to   { opacity: 1; transform: none; }
 `;
 
-export default function StatCard({ icon, iconBg, iconColor, label, value, trend, positiveWhen = 'up', loading = false }) {
+/** Une moitié de journée : libellé + grand nombre entier. */
+function HalfDay({ icon, label, value, color, loading }) {
+    return (
+        <Box
+            sx={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0.75,
+                px: 2.25,
+                py: 1.75,
+                borderRadius: '20px',
+                backgroundColor: '#f5f8f9',
+                transition: `transform 350ms ${SPRING}, border-radius 350ms ${SPRING}, background-color 200ms`,
+                '&:hover': { transform: 'translateY(-2px)', borderRadius: '26px 16px 26px 16px', backgroundColor: '#eef3f4' },
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+            }}
+        >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: '#52606a', fontSize: '0.74rem', fontWeight: 600 }}>
+                {React.cloneElement(icon, { size: 14, color })}
+                {label}
+            </Box>
+            <Typography sx={{ fontSize: '1.7rem', fontWeight: 700, color: '#18181b', lineHeight: 1.1 }}>
+                {loading ? (
+                    <Skeleton.Input active size="small" style={{ width: 40, minWidth: 0 }} />
+                ) : (
+                    <AnimatedNumber value={value} />
+                )}
+            </Typography>
+        </Box>
+    );
+}
+
+/**
+ * Carte de statistique.
+ * - `split={{ matin, soir }}` : affiche le nombre de matins et de soirs côte à côte (entiers).
+ * - sinon : une seule valeur (ex. effectif).
+ */
+export default function StatCard({
+    icon,
+    iconBg,
+    iconColor,
+    label,
+    value,
+    split,
+    trend,
+    positiveWhen = 'up',
+    loading = false,
+}) {
     const isGood = trend ? trend.direction === positiveWhen : null;
 
     return (
@@ -43,37 +83,36 @@ export default function StatCard({ icon, iconBg, iconColor, label, value, trend,
             sx={{
                 position: 'relative',
                 overflow: 'hidden',
-                flex: '1 1 200px',
-                minWidth: 200,
+                flex: split ? '1.5 1 280px' : '1 1 200px',
+                minWidth: split ? 280 : 200,
                 display: 'flex',
-                alignItems: 'center',
-                gap: 2,
-                p: 2.5,
+                flexDirection: 'column',
+                gap: 2.5,
+                p: 3,
                 borderRadius: '28px',
                 border: 'none',
                 backgroundColor: '#ffffff',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.05), 0 6px 18px rgba(0,0,0,0.06)',
                 cursor: 'default',
                 // entrée en cascade avec effet de ressort
-                animation: `${M3_RISE} 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both`,
+                animation: `${M3_RISE} 600ms ${SPRING} both`,
                 '&:nth-of-type(2)': { animationDelay: '70ms' },
                 '&:nth-of-type(3)': { animationDelay: '140ms' },
                 '&:nth-of-type(4)': { animationDelay: '210ms' },
-                transition:
-                    'transform 350ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 250ms ease, border-radius 350ms cubic-bezier(0.34,1.56,0.64,1)',
+                transition: `transform 350ms ${SPRING}, box-shadow 250ms ease, border-radius 350ms ${SPRING}`,
                 // forme décorative teintée par la couleur de la carte
                 '&::after': {
                     content: '""',
                     position: 'absolute',
-                    right: -26,
-                    top: -26,
-                    width: 100,
-                    height: 100,
+                    right: -30,
+                    top: -30,
+                    width: 110,
+                    height: 110,
                     borderRadius: '42% 58% 55% 45% / 50% 40% 60% 50%',
                     backgroundColor: iconColor,
                     opacity: 0.08,
                     pointerEvents: 'none',
-                    transition: 'transform 600ms cubic-bezier(0.34,1.56,0.64,1), border-radius 600ms cubic-bezier(0.34,1.56,0.64,1), opacity 300ms',
+                    transition: `transform 600ms ${SPRING}, border-radius 600ms ${SPRING}, opacity 300ms`,
                 },
                 '&:hover': {
                     transform: 'translateY(-5px)',
@@ -86,7 +125,7 @@ export default function StatCard({ icon, iconBg, iconColor, label, value, trend,
                     opacity: 0.14,
                 },
                 '&:hover .m3-stat-icon': { borderRadius: '50%', transform: 'rotate(-8deg) scale(1.08)' },
-                '&:active': { transform: 'scale(0.97)' },
+                '&:active': { transform: 'scale(0.98)' },
                 '@media (prefers-reduced-motion: reduce)': {
                     animation: 'none',
                     transition: 'none',
@@ -94,63 +133,66 @@ export default function StatCard({ icon, iconBg, iconColor, label, value, trend,
                 },
             }}
         >
-            <Box
-                className="m3-stat-icon"
-                sx={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: '20px', // forme "squircle" qui devient un rond au survol
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: iconBg,
-                    color: iconColor,
-                    flexShrink: 0,
-                    transition: 'border-radius 400ms cubic-bezier(0.34,1.56,0.64,1), transform 400ms cubic-bezier(0.34,1.56,0.64,1)',
-                }}
-            >
-                {React.cloneElement(icon, { size: 24 })}
-            </Box>
+            {/* ---------- En-tête : icône + libellé + tendance ---------- */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box
+                    className="m3-stat-icon"
+                    sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '18px', // « squircle » qui devient un rond au survol
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: iconBg,
+                        color: iconColor,
+                        flexShrink: 0,
+                        transition: `border-radius 400ms ${SPRING}, transform 400ms ${SPRING}`,
+                    }}
+                >
+                    {React.cloneElement(icon, { size: 24 })}
+                </Box>
 
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Typography sx={{ fontSize: '0.8rem', color: '#52606a', fontWeight: 500 }}>
+                <Typography sx={{ flexGrow: 1, minWidth: 0, fontSize: '0.9rem', color: '#33414a', fontWeight: 600 }}>
                     {label}
                 </Typography>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
-                    <Typography sx={{ fontSize: '1.6rem', fontWeight: 700, color: '#18181b', lineHeight: 1.2 }}>
-                        {loading ? (
-                            <Skeleton.Input active size="small" style={{ width: 56, minWidth: 0 }} />
-                        ) : (
-                            <AnimatedNumber value={value} />
-                        )}
-                    </Typography>
-
-                    {trend && !loading && (
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                px: 1,
-                                py: 0.2,
-                                borderRadius: '999px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                backgroundColor: isGood ? '#f0fdf4' : '#fef2f2',
-                                color: isGood ? '#166534' : '#991b1b',
-                            }}
-                        >
-                            {trend.direction === 'up' ? (
-                                <TrendingUp size={14} />
-                            ) : (
-                                <TrendingDown size={14} />
-                            )}
-                            {trend.percent}%
-                        </Box>
-                    )}
-                </Box>
+                {trend && !loading && (
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            px: 1.25,
+                            py: 0.4,
+                            borderRadius: '999px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            backgroundColor: isGood ? '#f0fdf4' : '#fef2f2',
+                            color: isGood ? '#166534' : '#991b1b',
+                        }}
+                    >
+                        {trend.direction === 'up' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        {trend.percent}%
+                    </Box>
+                )}
             </Box>
+
+            {/* ---------- Valeur(s) ---------- */}
+            {split ? (
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                    <HalfDay icon={<Sun />} label="Matin" value={split.matin} color="#b87800" loading={loading} />
+                    <HalfDay icon={<Sunset />} label="Soir" value={split.soir} color="#1b6979" loading={loading} />
+                </Box>
+            ) : (
+                <Typography sx={{ fontSize: '2rem', fontWeight: 700, color: '#18181b', lineHeight: 1.1 }}>
+                    {loading ? (
+                        <Skeleton.Input active size="small" style={{ width: 56, minWidth: 0 }} />
+                    ) : (
+                        <AnimatedNumber value={value} />
+                    )}
+                </Typography>
+            )}
         </Box>
     );
 }

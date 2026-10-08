@@ -11,6 +11,12 @@ import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import CircularProgress from "@mui/material/CircularProgress";
+import Switch from "@mui/material/Switch";
+import "dayjs/locale/fr";
+import m from "./modPointage.module.css";
+import PageHeader from "./autorisations_absences/components/PageHeader";
 import Alert from "@mui/material/Alert";
 import { useLocation, useNavigate } from "react-router-dom";
 import Snackbar from "@mui/material/Snackbar";
@@ -38,7 +44,7 @@ import TextField from "@mui/material/TextField";
 import {
   TimePicker,
   MobileTimePicker,
-  StaticTimePicker,
+  TimeClock,
 } from "@mui/x-date-pickers";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -61,6 +67,56 @@ const BootstrapDialog = styled(Dialog)(({ theme }) => ({
     maxWidth: "500px",
   },
 }));
+
+const formatHeure = (valeur) =>
+  valeur && dayjs(valeur).isValid() ? dayjs(valeur).format("HH:mm") : null;
+
+/** Champ « heure » : un grand bouton qui ouvre le sélecteur ; la croix efface l'heure. */
+const TimeField = ({ label, value, onOpen, onClear }) => {
+  const heure = formatHeure(value);
+  return (
+    <div className={m.timeWrap}>
+      <button
+        type="button"
+        className={`${m.timeField} ${heure ? m.filled : ""}`}
+        onClick={onOpen}
+        aria-label={`${label} : ${heure ?? "non renseignée"}`}
+      >
+        <span className={m.timeLabel}>{label}</span>
+        <span className={m.timeValue}>{heure ?? "--:--"}</span>
+        <i className="fa-regular fa-clock" aria-hidden="true"></i>
+      </button>
+      {heure && (
+        <button type="button" className={m.clear} onClick={onClear} aria-label={`Effacer ${label}`}>
+          <i className="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      )}
+    </div>
+  );
+};
+
+/** Une demi-journée (ou la journée) : entrée / sortie + interrupteur « absent ». */
+const PeriodCard = ({ titre, icone, absent, onAbsentChange, absentLabel, children }) => (
+  <section className={`${m.period} ${absent ? m.isAbsent : ""}`} aria-label={titre}>
+    <header className={m.periodHead}>
+      <span className={m.periodTitle}>
+        <i className={icone} aria-hidden="true"></i>
+        {titre}
+      </span>
+      <label className={m.absentToggle}>
+        <Switch
+          size="small"
+          color="error"
+          checked={absent}
+          onChange={(e) => onAbsentChange(e.target.checked)}
+        />
+        {absentLabel}
+      </label>
+    </header>
+    <div className={m.times}>{children}</div>
+    {absent && <p className={m.hint}>Marqué absent : les heures déjà pointées sont conservées.</p>}
+  </section>
+);
 
 const ModPointage = () => {
   const navigate = useNavigate();
@@ -104,65 +160,24 @@ const ModPointage = () => {
   const { state } = useLocation();
   const record = state?.menuRecord; // Ajoute une vérification au cas où
   const [heureEntree, setHeureEntree] = useState(null); // stocke Date objet
-  const [openTimePicker, setOpenTimePicker] = useState(false);
-const [heureEntree1, setHeureEntree1] = useState(null);
-const [heureSortie1, setHeureSortie1] = useState(null);
-  const handleOpenTimePicker = () => {
-    if (absencePeriode === "matin") return;
-    setOpenTimePicker(true);
-  };
+  const [heureEntree1, setHeureEntree1] = useState(null);
+  const [heureSortie1, setHeureSortie1] = useState(null);
   const isFetching = useRef(false);
 
-  const handleCloseTimePicker = () => setOpenTimePicker(false);
-
   const [heureEntreeSoir, setHeureEntreeSoir] = useState(null); // stocke Date objet
-  const [openTimePickerEntreeSoir, setOpenTimePickerEntreeSoir] =
-    useState(false);
-
-  const handleOpenTimePickerEntreeSoir = () => {
-    if (absencePeriodeSoir === "soir") return;
-    setOpenTimePickerEntreeSoir(true);
-  };
-
-  const handleCloseTimePickerEntreeSoir = () =>
-    setOpenTimePickerEntreeSoir(false);
-
   const [heureSortie, setHeureSortie] = useState(null); // stocke Date objet
-  const [openTimePickerSortie, setOpenTimePickerSortie] = useState(false);
-
-  const handleOpenTimePickerSortie = () => {
-    if (absencePeriode === "matin") return;
-    setOpenTimePickerSortie(true);
-  };
-
-  const handleCloseTimePickerSortie = () => setOpenTimePickerSortie(false);
-
   const [heureSortieSoir, setHeureSortieSoir] = useState(null); // stocke Date objet
-  const [openTimePickerSortieSoir, setOpenTimePickerSortieSoir] =
-    useState(false);
-  const [openTimeSurface, setOpenSurface] =
-    useState(false);
-      const [openTimeSurface2, setOpenSurface2] = useState(false);
-  const handleOpenTimePickerSortieSoir = () => {
-    if (absencePeriodeSoir === "soir") return;
-    setOpenTimePickerSortieSoir(true);
+
+  // Sélecteur d'heure unique : clé du champ en cours d'édition + heure en cours de réglage
+  const [picker, setPicker] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [clockView, setClockView] = useState("hours");
+  const openPicker = (cle) => {
+    setDraft(null);
+    setClockView("hours");
+    setPicker(cle);
   };
-  const handleCloseTimePickerSortieSoir = () =>
-    setOpenTimePickerSortieSoir(false);
   const openDate = Boolean(anchorEl);
-
-    const handleOpenSurface = () => {
-      if (absenceSurface) return;
-      setOpenSurface(true);
-    };
-
-
-       const handleOpenSurface2 = () => {
-         if (absenceSurface) return;
-         setOpenSurface2(true);
-       };
-      const handleCloseTimeSurface = () => setOpenSurface(false);
-  const handleCloseTimeSurface2 = () => setOpenSurface2(false);
 
   const popperRef = React.useRef(null);
   const [absencePeriode, setAbsencePeriode] = useState("");
@@ -222,8 +237,6 @@ const isSurface = record.role === "surface";
    if (record.absence_unique) {
  
     setAbsenceSurface(true)
-        setHeureEntree1(null);
-        setHeureSortie1(null)
    } else {
      setAbsenceSurface(false);
      setHeureEntree1(record.heure_entree_unique || null);
@@ -466,24 +479,31 @@ const isSurface = record.role === "surface";
       ? result
       : dayjs().hour(defaultHour).minute(defaultMinute).second(0);
   };
+  // Valeur AFFICHÉE dans chaque sélecteur (état, sinon heure du pointage, sinon valeur par défaut).
+  // Elle sert aussi à OK : sans modification, le sélecteur n'appelle ni onChange ni onAccept.
+  const hhmmDuJour = (hhmm) => {
+    const [h, m] = hhmm.split(":");
+    return dayjs().hour(parseInt(h)).minute(parseInt(m)).second(0);
+  };
+  const valeurSelecteur = (etat, hhmm, heureDefaut) => {
+    if (etat && dayjs(etat).isValid()) return dayjs(etat);
+    if (hhmm) return hhmmDuJour(hhmm);
+    return dayjs().hour(heureDefaut).minute(0).second(0);
+  };
+  const valEntreeMatin = valeurSelecteur(heureEntree, record?.matin?.entree, 6);
+  const valSortieMatin = valeurSelecteur(heureSortie, record?.matin?.sortie, 11);
+  const valEntreeSoir = valeurSelecteur(heureEntreeSoir, record?.apresmidi?.entree, 13);
+  const valSortieSoir = valeurSelecteur(heureSortieSoir, record?.apresmidi?.sortie, 13);
+  const valEntreeSurface = valeurSelecteur(heureEntree1, record?.heure_entree_unique, 6);
+  const valSortieSurface = valeurSelecteur(heureSortie1, record?.heure_sortie_unique, 6);
+
   const formatTime = (value) => {
     if (!value) return null;
     return dayjs(value).format("HH:mm");
   };
 
-  useEffect(() => {
-    if (absencePeriode === "matin") {
-      setHeureEntree(null);
-      setHeureSortie(null);
-    }
-  }, [absencePeriode]);
-
-  useEffect(() => {
-    if (absencePeriodeSoir === "soir") {
-      setHeureEntreeSoir(null);
-      setHeureSortieSoir(null);
-    }
-  }, [absencePeriodeSoir]);
+  // Les heures déjà pointées restent affichées (et conservées) même si la demi-journée est
+  // marquée « absent » : ex. entrée à 8h00 sans sortie.
 
 const handleSubmit = async () => {
   if (!record || !admin) return;
@@ -507,8 +527,8 @@ const handleSubmit = async () => {
     // Pour agents de surface : heure d'entrée unique ou absence unique
     if (absenceSurface) {
       payload.absence_unique = true;
-      payload.heure_entree_unique = null;
-          payload.heure_sortie_unique = null;
+      payload.heure_entree_unique = formatTime(heureEntree1);
+      payload.heure_sortie_unique = formatTime(heureSortie1);
     } else if (heureEntree1 ||  heureSortie1) {
       payload.heure_entree_unique = formatTime(heureEntree1);
        payload.heure_sortie_unique = formatTime(heureSortie1);
@@ -527,15 +547,12 @@ const handleSubmit = async () => {
     // Pour les autres rôles : matin/soir
     payload.idserv = admin.responsable.idserv;
 
-    payload.heure_entree_matin =
-      absencePeriode === "matin" ? null : formatTime(heureEntree);
-    payload.heure_sortie_matin =
-      absencePeriode === "matin" ? null : formatTime(heureSortie);
+    // Les heures sont envoyées même si la demi-journée est marquée absente
+    payload.heure_entree_matin = formatTime(heureEntree);
+    payload.heure_sortie_matin = formatTime(heureSortie);
 
-    payload.heure_entree_soir =
-      absencePeriodeSoir === "soir" ? null : formatTime(heureEntreeSoir);
-    payload.heure_sortie_soir =
-      absencePeriodeSoir === "soir" ? null : formatTime(heureSortieSoir);
+    payload.heure_entree_soir = formatTime(heureEntreeSoir);
+    payload.heure_sortie_soir = formatTime(heureSortieSoir);
 
     payload.absence_matin = absencePeriode === "matin";
     payload.absence_soir = absencePeriodeSoir === "soir";
@@ -572,1043 +589,220 @@ const handleSubmit = async () => {
   }
 };
 
+  // Réglages de chaque sélecteur d'heure (plages autorisées en heures)
+  const PICKERS = {
+    // Matin : 6 h – 13 h ; après-midi : 12 h – 19 h
+    entreeMatin: { label: "Entrée matin", value: valEntreeMatin, set: setHeureEntree, min: 6, max: 13 },
+    sortieMatin: { label: "Sortie matin", value: valSortieMatin, set: setHeureSortie, min: 6, max: 13 },
+    entreeSoir: { label: "Entrée après-midi", value: valEntreeSoir, set: setHeureEntreeSoir, min: 12, max: 19 },
+    sortieSoir: { label: "Sortie après-midi", value: valSortieSoir, set: setHeureSortieSoir, min: 12, max: 19 },
+    entreeSurface: { label: "Heure d'entrée", value: valEntreeSurface, set: setHeureEntree1, min: 4, max: 21 },
+    sortieSurface: { label: "Heure de sortie", value: valSortieSurface, set: setHeureSortie1, min: 8, max: 21 },
+  };
+  const pickerCfg = picker ? PICKERS[picker] : null;
+
+  const initiales = selectedMatricule
+    ? `${selectedMatricule.prenom?.[0] ?? ""}${selectedMatricule.nom?.[0] ?? ""}`.toUpperCase() || "?"
+    : "?";
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="fr">
-      <div className={styles.personnels}>
-        <div className={styles.break}>
-          <Breadcrumbs aria-label="breadcrumb">
-            <Link underline="hover" color="inherit" sx={{ fontSize: "0.9rem" }}>
-              Fiche de présence
-            </Link>
+      <div className={m.page}>
+        <PageHeader
+          title="Modifier le pointage"
+          subtitle="Corrigez les heures et l'absence de cet agent"
+          show
+          onBackClick={goBack}
+        />
 
-            <Typography sx={{ color: "text.primary", fontSize: "0.9rem" }}>
-              Modifier
-            </Typography>
-          </Breadcrumbs>
+        {/* ---------- Agent + date ---------- */}
+        <section className={m.agent} aria-label="Agent">
+          <div className={m.avatar} aria-hidden="true">{initiales}</div>
+          <div className={m.agentText}>
+            <h2 className={m.agentName}>
+              {selectedMatricule ? `${selectedMatricule.prenom ?? ""} ${selectedMatricule.nom ?? ""}` : "Agent"}
+            </h2>
+            <p className={m.agentMeta}>
+              {selectedMatricule?.matricule ?? "—"} · {isSurface ? "Agent de surface" : "Agent de bureau"}
+            </p>
+            {errors.matricule && (
+              <p className={m.hint} role="alert">Le matricule est requis.</p>
+            )}
+          </div>
+          <div className={m.dateChip}>
+            <i className="fa-regular fa-calendar" aria-hidden="true"></i>
+            {dateDebut ? dayjs(dateDebut).locale("fr").format("dddd D MMMM YYYY") : "Date non définie"}
+          </div>
+        </section>
+
+        {/* ---------- Heures ---------- */}
+        <h3 className={m.sectionTitle}>Heures de pointage</h3>
+
+        {isSurface ? (
+          <PeriodCard
+            titre="Journée"
+            icone="fa-solid fa-sun"
+            absent={absenceSurface}
+            onAbsentChange={setAbsenceSurface}
+            absentLabel="Absent"
+          >
+            <TimeField
+              label="Heure d'entrée"
+              value={heureEntree1}
+              onOpen={() => openPicker("entreeSurface")}
+              onClear={() => setHeureEntree1(null)}
+            />
+            <TimeField
+              label="Heure de sortie"
+              value={heureSortie1}
+              onOpen={() => openPicker("sortieSurface")}
+              onClear={() => setHeureSortie1(null)}
+            />
+          </PeriodCard>
+        ) : (
+          <div className={m.grid}>
+            <PeriodCard
+              titre="Matin"
+              icone="fa-solid fa-sun"
+              absent={absencePeriode === "matin"}
+              onAbsentChange={(coche) => setAbsencePeriode(coche ? "matin" : "")}
+              absentLabel="Absent le matin"
+            >
+              <TimeField
+                label="Entrée"
+                value={heureEntree}
+                onOpen={() => openPicker("entreeMatin")}
+                onClear={() => setHeureEntree(null)}
+              />
+              <TimeField
+                label="Sortie"
+                value={heureSortie}
+                onOpen={() => openPicker("sortieMatin")}
+                onClear={() => setHeureSortie(null)}
+              />
+            </PeriodCard>
+
+            <PeriodCard
+              titre="Après-midi"
+              icone="fa-solid fa-cloud-sun"
+              absent={absencePeriodeSoir === "soir"}
+              onAbsentChange={(coche) => setAbsencePeriodeSoir(coche ? "soir" : "")}
+              absentLabel="Absent le soir"
+            >
+              <TimeField
+                label="Entrée"
+                value={heureEntreeSoir}
+                onOpen={() => openPicker("entreeSoir")}
+                onClear={() => setHeureEntreeSoir(null)}
+              />
+              <TimeField
+                label="Sortie"
+                value={heureSortieSoir}
+                onOpen={() => openPicker("sortieSoir")}
+                onClear={() => setHeureSortieSoir(null)}
+              />
+            </PeriodCard>
+          </div>
+        )}
+
+        {/* ---------- Actions ---------- */}
+        <div className={m.actions}>
+          <Button
+            variant="outlined"
+            onClick={goBack}
+            disabled={loading}
+            sx={{ textTransform: "none", fontSize: "0.85rem", px: 4, py: 1.6, color: "#1b6979", borderColor: "#c5d6da" }}
+          >
+            Annuler
+          </Button>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={handleSubmit}
+            disabled={loading}
+            startIcon={
+              loading ? (
+                <CircularProgress size={18} color="inherit" />
+              ) : (
+                <i className="fa-solid fa-floppy-disk" style={{ fontSize: "0.95rem" }}></i>
+              )
+            }
+            sx={{ textTransform: "none", fontSize: "0.85rem", px: 5, py: 1.6, backgroundColor: "#14535f" }}
+          >
+            Sauvegarder
+          </Button>
         </div>
 
-        <div className={styles.card}>
-          <div className={styles.container}>
-            <div className={styles.retour} onClick={goBack}>
-              <IconButton
-                aria-label="more"
-                id="long-button"
-                aria-haspopup="true"
-                size="large"
-              >
-                <i className="fa-solid fa-arrow-left"></i>
-              </IconButton>
-            </div>
+        {/* ---------- Sélecteur d'heure (un seul pour tous les champs) ---------- */}
+        <Dialog
+          open={Boolean(pickerCfg)}
+          onClose={() => setPicker(null)}
+          maxWidth="xs"
+          slotProps={{ paper: { className: m.pickerPaper } }}
+        >
+          {pickerCfg && (
+            <div className={m.picker}>
+              <h2 className={m.pickerTitle}>{pickerCfg.label}</h2>
 
-            <div className={styles.sary1}>
-              <img src={Perso} alt="" />
-            </div>
+              {/* Heure en cours de réglage : un clic bascule entre heures et minutes */}
+              <div className={m.pickerDisplay} role="group" aria-label="Heure sélectionnée">
+                <button
+                  type="button"
+                  className={`${m.pickerPart} ${clockView === "hours" ? m.partActive : ""}`}
+                  onClick={() => setClockView("hours")}
+                  aria-label="Régler les heures"
+                >
+                  {dayjs(draft ?? pickerCfg.value).format("HH")}
+                </button>
+                <span className={m.pickerColon} aria-hidden="true">:</span>
+                <button
+                  type="button"
+                  className={`${m.pickerPart} ${clockView === "minutes" ? m.partActive : ""}`}
+                  onClick={() => setClockView("minutes")}
+                  aria-label="Régler les minutes"
+                >
+                  {dayjs(draft ?? pickerCfg.value).format("mm")}
+                </button>
+              </div>
 
-            <div className={styles.form}>
-              <div className={styles.inputM}>
-                <label htmlFor="matricule">
-                  Matricule <span style={{ color: "red" }}>*</span>
-                </label>
-                <TextField
-                  placeholder="Selectionner un personnel"
-                  variant="standard"
-                  readOnly
-                  fullWidth
-                  value={
-                    selectedMatricule
-                      ? `${selectedMatricule.matricule} - ${selectedMatricule.nom}`
-                      : ""
-                  }
-                  error={errors.matricule} // ← true seulement si champ invalide
-                  helperText={
-                    errors.matricule ? "Le matricule est requis." : ""
-                  } // ← helper text seulement si erreur
-                  sx={{
-                    mt: 1,
-                    mb: 2,
-                    width: "100%",
-                    "& .MuiInputBase-root": {
-                      paddingRight: "10px", // évite que le texte touche l’icône
-                    },
-
-                    "& .MuiInputBase-input": {
-                      padding: "8px 1px",
-                      fontSize: "0.9rem",
-                      fontFamily:
-                        "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                      "@media (max-width:600px)": {
-                        padding: "5px 0px !important",
-                      },
-                    },
-                  }}
+              <div className={m.pickerClock}>
+                <TimeClock
+                  ampm={false}
+                  value={draft ?? pickerCfg.value}
+                  onChange={(valeur) => setDraft(valeur)}
+                  view={clockView}
+                  onViewChange={(vue) => setClockView(vue)}
+                  views={["hours", "minutes"]}
+                  minutesStep={5}
+                  minTime={dayjs().hour(pickerCfg.min).minute(0).second(0)}
+                  maxTime={dayjs().hour(pickerCfg.max).minute(0).second(0)}
                 />
               </div>
-              <Menu
-                anchorEl={anchorElType}
-                open={openType}
-                onClose={() => setAnchorElType(null)}
-                PaperProps={{
-                  style: {
-                    minWidth: typeDivRef.current
-                      ? typeDivRef.current.offsetWidth
-                      : 200,
-                  },
-                }}
-              ></Menu>
 
-              <div className={styles.inputM}>
-                <label htmmatinlFor="dateDebut">
-                  Date pointage
-                  <span style={{ color: "red" }}>*</span>
-                </label>
-                <TextField
-                  value={dateDebut ? dayjs(dateDebut).format("DD/MM/YYYY") : ""}
-                  readOnly
-                  placeholder="Selectionner une date"
-                  error={errors.dateDebut}
-                  helperText={errors.dateDebut ? "Le date est requis." : ""}
-                  variant="standard"
-                  fullWidth
-                  sx={{
-                    mt: 1,
-                    mb: 2,
-                    fontFamily:
-                      " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                    width: "100%",
-                    "& .MuiInputBase-input": {
-                      padding: "8px 1px", // padding interne uniforme
-                      fontSize: "0.9rem", // ← augmente la taille du texte
-                      fontWeight: 500,
-                      "@media (max-width:600px)": {
-                        padding: "5px 0px !important", // mobile → réduit
-                      },
-                    },
-                    "& .MuiInputLabel-root": {
-                      fontFamily:
-                        "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                    },
-                  }}
-                  InputLabelProps={{
-                    style: {
-                      fontSize: "1.0rem",
-                      letterSpacing: "1px",
-                    },
-                  }}
-                />
-              </div>
-              {!isSurface && (
-                <>
-                  <div className={styles.dateContainer}>
-                    <div className={styles.dateField}>
-                      <label htmlFor="heure_entree">
-                        Entrée matin
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <TextField
-                        disabled={absencePeriode === "matin"}
-                        placeholder="Sélectionner une heure"
-                        value={
-                          heureEntree ? dayjs(heureEntree).format("HH:mm") : ""
-                        }
-                        onClick={handleOpenTimePicker}
-                        readOnly
-                        error={errors.heureEntree}
-                        helperText={
-                          errors.heureEntree
-                            ? "L'heure d'entrée est requise."
-                            : ""
-                        }
-                        variant="standard"
-                        fullWidth
-                        sx={{
-                          mt: 1,
-                          mb: 2,
-                          fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                          width: "100%",
-                          "& .MuiInputBase-input": {
-                            padding: "8px 1px", // padding interne uniforme
-                            fontSize: "0.9rem", // ← augmente la taille du texte
-                            fontWeight: 500,
-                            "@media (max-width:600px)": {
-                              padding: "5px 0px !important", // mobile → réduit
-                            },
-                          },
-                          "& .MuiInputLabel-root": {
-                            fontFamily:
-                              "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                          },
-                        }}
-                        InputLabelProps={{
-                          style: {
-                            fontSize: "1.0rem",
-                            letterSpacing: "1px",
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                edge="end"
-                                onClick={handleOpenTimePicker}
-                                size="large"
-                                disabled={absencePeriode === "matin"}
-                              >
-                                <i
-                                  className="fa-solid fa-sun"
-                                  style={{ fontSize: "1.0rem" }}
-                                ></i>
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <Dialog
-                        open={openTimePicker}
-                        onClose={handleCloseTimePicker}
-                      >
-                        <DialogContent sx={{ p: 0 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#f9fafb",
-                              p: 4, // padding = 4 * 8px = 32px (comme Tailwind p-4)
-                            }}
-                          >
-                            {" "}
-                            {/* p: 0 pour que le picker prenne toute la place */}
-                            <StaticTimePicker
-                              orientation="landscape" // mode paysage
-                              ampm={false} // format 24h
-                              open={openTimePicker}
-                              onOpen={() => setOpenTimePicker(true)}
-                              onClose={() => setOpenTimePicker(false)}
-                              value={
-                                heureEntree ||
-                                (record?.matin?.entree
-                                  ? (() => {
-                                      const [h, m] =
-                                        record.matin.entree.split(":");
-                                      return dayjs()
-                                        .hour(parseInt(h))
-                                        .minute(parseInt(m))
-                                        .second(0);
-                                    })()
-                                  : dayjs().hour(6).minute(0).second(0)) // valeur par défaut
-                              }
-                              onChange={(newValue) => setHeureEntree(newValue)}
-                              minutesStep={5}
-                              minTime={dayjs().hour(4).minute(0).second(0)}
-                              maxTime={dayjs().hour(12).minute(0).second(0)}
-                              localeText={{
-                                toolbarTitle: "RÉGLER L'HEURE",
-                                cancelButtonLabel: "Annuler", // ← bouton Annuler en français
-                                okButtonLabel: "OK", // ← bouton OK (tu peux mettre "Valider" si tu veux)
-                              }}
-                              sx={{
-                                width: {
-                                  xs: 800, // mobile → largeur plus large
-                                  sm: 700, // tablette / desktop → encore plus large
-                                },
-                                "& .MuiPickersTimePickerToolbar-root": {
-                                  minWidth: "100%", // toolbar prend toute la largeur
-                                },
-                                "& .MuiPickersTimePicker-root, & .MuiPickersClock-root":
-                                  {
-                                    width: "100%", // horloge et picker prennent toute la largeur
-                                  },
-                              }}
-                            />
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </div>{" "}
-                    <div className={styles.dateField}>
-                      <label htmlFor="heure_entree">
-                        Sortie matin
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <TextField
-                        placeholder="Sélectionner une heure"
-                        disabled={absencePeriode === "matin"}
-                        value={
-                          heureSortie ? dayjs(heureSortie).format("HH:mm") : ""
-                        }
-                        onClick={handleOpenTimePickerSortie}
-                        readOnly
-                        error={errors.heureSortie}
-                        helperText={
-                          errors.heureSortie
-                            ? "L'heure de sortie est requise."
-                            : ""
-                        }
-                        variant="standard"
-                        fullWidth
-                        sx={{
-                          mt: 1,
-                          mb: 2,
-                          fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                          width: "100%",
-                          "& .MuiInputBase-input": {
-                            padding: "8px 1px", // padding interne uniforme
-                            fontSize: "0.9rem", // ← augmente la taille du texte
-                            fontWeight: 500,
-                            "@media (max-width:600px)": {
-                              padding: "5px 0px !important", // mobile → réduit
-                            },
-                          },
-                          "& .MuiInputLabel-root": {
-                            fontFamily:
-                              "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                          },
-                        }}
-                        InputLabelProps={{
-                          style: {
-                            fontSize: "1.0rem",
-                            letterSpacing: "1px",
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                edge="end"
-                                onClick={handleOpenTimePickerSortie}
-                                size="large"
-                                disabled={absencePeriode === "matin"}
-                              >
-                                <i
-                                  className="fa-solid fa-sun"
-                                  style={{ fontSize: "1.0rem" }}
-                                ></i>
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <Dialog
-                        open={openTimePickerSortie}
-                        onClose={handleCloseTimePickerSortie}
-                      >
-                        <DialogContent sx={{ p: 0 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#f9fafb",
-                              p: 4, // padding = 4 * 8px = 32px (comme Tailwind p-4)
-                            }}
-                          >
-                            {" "}
-                            {/* p: 0 pour que le picker prenne toute la place */}
-                            <StaticTimePicker
-                              orientation="landscape" // mode paysage
-                              ampm={false} // format 24h
-                              open={openTimePickerSortie}
-                              value={
-                                heureSortie && dayjs(heureSortie).isValid()
-                                  ? dayjs(heureSortie)
-                                  : record?.matin?.sortie
-                                    ? (() => {
-                                        const [h, m] =
-                                          record.matin.sortie.split(":");
-                                        return dayjs()
-                                          .hour(parseInt(h))
-                                          .minute(parseInt(m))
-                                          .second(0);
-                                      })()
-                                    : dayjs().hour(11).minute(0).second(0)
-                              }
-                              onOpen={() => setOpenTimePickerSortie(true)}
-                              onClose={() => setOpenTimePickerSortie(false)}
-                              onChange={(newValue) => setHeureSortie(newValue)}
-                              minutesStep={5}
-                              minTime={dayjs().hour(4).minute(0).second(0)}
-                              maxTime={dayjs().hour(13).minute(0).second(0)}
-                              disabled={absencePeriode === "matin"}
-                              localeText={{
-                                toolbarTitle: "RÉGLER L'HEURE",
-                                cancelButtonLabel: "Annuler", // ← bouton Annuler en français
-                                okButtonLabel: "OK", // ← bouton OK (tu peux mettre "Valider" si tu veux)
-                              }}
-                              sx={{
-                                width: {
-                                  xs: 800, // mobile → largeur plus large
-                                  sm: 700, // tablette / desktop → encore plus large
-                                },
-                                "& .MuiPickersTimePickerToolbar-root": {
-                                  minWidth: "100%", // toolbar prend toute la largeur
-                                },
-                                "& .MuiPickersTimePicker-root, & .MuiPickersClock-root":
-                                  {
-                                    width: "100%", // horloge et picker prennent toute la largeur
-                                  },
-                              }}
-                            />
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </div>{" "}
-                  </div>
-
-                  <div className={styles.dateContainer}>
-                    <div className={styles.dateField}>
-                      <label htmlFor="heure_entree">
-                        Entrée soir
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <TextField
-                        disabled={absencePeriodeSoir === "soir"}
-                        placeholder="Sélectionner une heure"
-                        value={
-                          heureEntreeSoir
-                            ? dayjs(heureEntreeSoir).format("HH:mm")
-                            : ""
-                        }
-                        onClick={handleOpenTimePickerEntreeSoir}
-                        readOnly
-                        error={errors.heureEntreeSoir}
-                        helperText={
-                          errors.heureEntreeSoir
-                            ? "L'heure d'entrée soir est requise."
-                            : ""
-                        }
-                        variant="standard"
-                        fullWidth
-                        sx={{
-                          mt: 1,
-                          mb: 2,
-                          fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                          width: "100%",
-                          "& .MuiInputBase-input": {
-                            padding: "8px 1px", // padding interne uniforme
-                            fontSize: "0.9rem", // ← augmente la taille du texte
-                            fontWeight: 500,
-                            "@media (max-width:600px)": {
-                              padding: "5px 0px !important", // mobile → réduit
-                            },
-                          },
-                          "& .MuiInputLabel-root": {
-                            fontFamily:
-                              "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                          },
-                        }}
-                        InputLabelProps={{
-                          style: {
-                            fontSize: "1.0rem",
-                            letterSpacing: "1px",
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                edge="end"
-                                onClick={handleOpenTimePickerEntreeSoir}
-                                size="large"
-                                disabled={absencePeriodeSoir === "soir"}
-                              >
-                                <i
-                                  className="fa-solid fa-cloud-sun"
-                                  style={{ fontSize: "1.0rem" }}
-                                ></i>
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <Dialog
-                        open={openTimePickerEntreeSoir}
-                        onClose={handleCloseTimePickerEntreeSoir}
-                      >
-                        <DialogContent sx={{ p: 0 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#f9fafb",
-                              p: 4, // padding = 4 * 8px = 32px (comme Tailwind p-4)
-                            }}
-                          >
-                            {" "}
-                            {/* p: 0 pour que le picker prenne toute la place */}
-                            <StaticTimePicker
-                              orientation="landscape" // mode paysage
-                              ampm={false} // format 24h
-                              open={openTimePickerEntreeSoir}
-                              onOpen={() => setOpenTimePickerEntreeSoir(true)}
-                              onClose={() => setOpenTimePickerEntreeSoir(false)}
-                              value={
-                                heureEntreeSoir ||
-                                (record?.apresmidi?.entree
-                                  ? (() => {
-                                      const [h, m] =
-                                        record.apresmidi.entree.split(":");
-                                      return dayjs()
-                                        .hour(parseInt(h))
-                                        .minute(parseInt(m))
-                                        .second(0);
-                                    })()
-                                  : dayjs().hour(13).minute(0).second(0)) // valeur par défaut
-                              }
-                              onChange={(newValue) =>
-                                setHeureEntreeSoir(newValue)
-                              }
-                              minutesStep={5}
-                              minTime={dayjs().hour(12).minute(0).second(0)}
-                              maxTime={dayjs().hour(15).minute(0).second(0)}
-                              localeText={{
-                                toolbarTitle: "RÉGLER L'HEURE",
-                                cancelButtonLabel: "Annuler", // ← bouton Annuler en français
-                                okButtonLabel: "OK", // ← bouton OK (tu peux mettre "Valider" si tu veux)
-                              }}
-                              sx={{
-                                width: {
-                                  xs: 800, // mobile → largeur plus large
-                                  sm: 700, // tablette / desktop → encore plus large
-                                },
-                                "& .MuiPickersTimePickerToolbar-root": {
-                                  minWidth: "100%", // toolbar prend toute la largeur
-                                },
-                                "& .MuiPickersTimePicker-root, & .MuiPickersClock-root":
-                                  {
-                                    width: "100%", // horloge et picker prennent toute la largeur
-                                  },
-                              }}
-                            />
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </div>{" "}
-                    <div className={styles.dateField}>
-                      <label htmlFor="heure_entree">
-                        Sortie soir
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <TextField
-                        disabled={absencePeriodeSoir === "soir"}
-                        placeholder="Sélectionner une heure"
-                        value={
-                          heureSortieSoir
-                            ? dayjs(heureSortieSoir).format("HH:mm")
-                            : ""
-                        }
-                        onClick={handleOpenTimePickerSortieSoir}
-                        readOnly
-                        error={errors.heureSortieSoir}
-                        helperText={
-                          errors.heureSortieSoir
-                            ? "L'heure de sortie soir est requise."
-                            : ""
-                        }
-                        variant="standard"
-                        fullWidth
-                        sx={{
-                          mt: 1,
-                          mb: 2,
-                          fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                          width: "100%",
-                          "& .MuiInputBase-input": {
-                            padding: "8px 1px", // padding interne uniforme
-                            fontSize: "0.9rem", // ← augmente la taille du texte
-                            fontWeight: 500,
-                            "@media (max-width:600px)": {
-                              padding: "5px 0px !important", // mobile → réduit
-                            },
-                          },
-                          "& .MuiInputLabel-root": {
-                            fontFamily:
-                              "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                          },
-                        }}
-                        InputLabelProps={{
-                          style: {
-                            fontSize: "1.0rem",
-                            letterSpacing: "1px",
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                edge="end"
-                                onClick={handleOpenTimePickerSortie}
-                                size="large"
-                                disabled={absencePeriodeSoir === "soir"}
-                              >
-                                <i
-                                  className="fa-solid fa-cloud-sun"
-                                  style={{ fontSize: "1.0rem" }}
-                                ></i>
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <Dialog
-                        open={openTimePickerSortieSoir}
-                        onClose={handleCloseTimePickerSortieSoir}
-                      >
-                        <DialogContent sx={{ p: 0 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#f9fafb",
-                              p: 4, // padding = 4 * 8px = 32px (comme Tailwind p-4)
-                            }}
-                          >
-                            {" "}
-                            {/* p: 0 pour que le picker prenne toute la place */}
-                            <StaticTimePicker
-                              orientation="landscape" // mode paysage
-                              ampm={false} // format 24h
-                              open={openTimePickerSortieSoir}
-                              value={
-                                heureSortieSoir &&
-                                dayjs(heureSortieSoir).isValid()
-                                  ? dayjs(heureSortieSoir)
-                                  : record?.apresmidi?.sortie
-                                    ? (() => {
-                                        const [h, m] =
-                                          record.apresmidi.sortie.split(":");
-                                        return dayjs()
-                                          .hour(parseInt(h))
-                                          .minute(parseInt(m))
-                                          .second(0);
-                                      })()
-                                    : dayjs().hour(13).minute(0).second(0)
-                              }
-                              onOpen={() => setOpenTimePickerSortieSoir(true)}
-                              onClose={() => setOpenTimePickerSortieSoir(false)}
-                              onChange={(newValue) =>
-                                setHeureSortieSoir(newValue)
-                              }
-                              minutesStep={5}
-                              minTime={dayjs().hour(15).minute(0).second(0)}
-                              maxTime={dayjs().hour(18).minute(0).second(0)}
-                              localeText={{
-                                toolbarTitle: "RÉGLER L'HEURE",
-                                cancelButtonLabel: "Annuler", // ← bouton Annuler en français
-                                okButtonLabel: "OK", // ← bouton OK (tu peux mettre "Valider" si tu veux)
-                              }}
-                              sx={{
-                                width: {
-                                  xs: 800, // mobile → largeur plus large
-                                  sm: 700, // tablette / desktop → encore plus large
-                                },
-                                "& .MuiPickersTimePickerToolbar-root": {
-                                  minWidth: "100%", // toolbar prend toute la largeur
-                                },
-                                "& .MuiPickersTimePicker-root, & .MuiPickersClock-root":
-                                  {
-                                    width: "100%", // horloge et picker prennent toute la largeur
-                                  },
-                              }}
-                            />
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </div>{" "}
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 15,
-                      fontFamily: " 'Poppins', sans-serif",
-                    }}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={absencePeriode === "matin"}
-                          onChange={(e) =>
-                            setAbsencePeriode(e.target.checked ? "matin" : "")
-                          }
-                        />
-                      }
-                      label="Absent le matin"
-                      sx={{ fontFamily: "'Poppins', sans-serif" }}
-                    />
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 15,
-                      fontFamily: " 'Poppins', sans-serif",
-                    }}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={absencePeriodeSoir === "soir"}
-                          onChange={(e) =>
-                            setAbsencePeriodeSoir(
-                              e.target.checked ? "soir" : "",
-                            )
-                          }
-                        />
-                      }
-                      label="Absent le soir"
-                      sx={{ fontFamily: "'Poppins', sans-serif" }}
-                    />
-                  </div>
-                </>
-              )}
-              {selectedMatricule?.role === "surface" && (
-                <>
-                  <div className={styles.dateContainer}>
-                    <div className={styles.dateField1}>
-                      <label htmlFor="heure_entree">
-                        Heure entrée
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <TextField
-                        disabled={absenceSurface}
-                        placeholder="Sélectionner une heure"
-                        value={
-                          heureEntree1
-                            ? dayjs(heureEntree1).format("HH:mm")
-                            : ""
-                        }
-                        onClick={handleOpenSurface}
-                        readOnly
-                        error={errors.heureEntree1}
-                        helperText={
-                          errors.heureEntree1
-                            ? "L'heure d'entrée est requise."
-                            : ""
-                        }
-                        variant="standard"
-                        fullWidth
-                        sx={{
-                          mt: 1,
-                          mb: 2,
-                          fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                          width: "100%",
-                          "& .MuiInputBase-input": {
-                            padding: "8px 1px", // padding interne uniforme
-                            fontSize: "0.9rem", // ← augmente la taille du texte
-                            fontWeight: 500,
-                            "@media (max-width:600px)": {
-                              padding: "5px 0px !important", // mobile → réduit
-                            },
-                          },
-                          "& .MuiInputLabel-root": {
-                            fontFamily:
-                              "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                          },
-                        }}
-                        InputLabelProps={{
-                          style: {
-                            fontSize: "1.0rem",
-                            letterSpacing: "1px",
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                edge="end"
-                                onClick={handleOpenSurface}
-                                size="large"
-                                disabled={absenceSurface}
-                              >
-                                <i
-                                  className="fa-solid fa-sun"
-                                  style={{ fontSize: "1.0rem" }}
-                                ></i>
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <Dialog
-                        open={openTimeSurface}
-                        onClose={handleCloseTimeSurface}
-                      >
-                        <DialogContent sx={{ p: 0 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#f9fafb",
-                              p: 4, // padding = 4 * 8px = 32px (comme Tailwind p-4)
-                            }}
-                          >
-                            {" "}
-                            {/* p: 0 pour que le picker prenne toute la place */}
-                            <StaticTimePicker
-                              orientation="landscape" // mode paysage
-                              ampm={false} // format 24h
-                              open={openTimeSurface}
-                              onOpen={() => setOpenSurface(true)}
-                              onClose={() => setOpenSurface(false)}
-                              value={
-                                heureEntree1 ||
-                                (record?.heure_entree_unique
-                                  ? (() => {
-                                      const [h, m] =
-                                        record.heure_entree_unique.split(":");
-                                      return dayjs()
-                                        .hour(parseInt(h))
-                                        .minute(parseInt(m))
-                                        .second(0);
-                                    })()
-                                  : dayjs().hour(6).minute(0).second(0)) // valeur par défaut
-                              }
-                              onChange={(newValue) => setHeureEntree1(newValue)}
-                              minutesStep={5}
-                              minTime={dayjs().hour(4).minute(0).second(0)}
-                              maxTime={dayjs().hour(21).minute(0).second(0)}
-                              localeText={{
-                                toolbarTitle: "RÉGLER L'HEURE",
-                                cancelButtonLabel: "Annuler", // ← bouton Annuler en français
-                                okButtonLabel: "OK", // ← bouton OK (tu peux mettre "Valider" si tu veux)
-                              }}
-                              sx={{
-                                width: {
-                                  xs: 800, // mobile → largeur plus large
-                                  sm: 700, // tablette / desktop → encore plus large
-                                },
-                                "& .MuiPickersTimePickerToolbar-root": {
-                                  minWidth: "100%", // toolbar prend toute la largeur
-                                },
-                                "& .MuiPickersTimePicker-root, & .MuiPickersClock-root":
-                                  {
-                                    width: "100%", // horloge et picker prennent toute la largeur
-                                  },
-                              }}
-                            />
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </div>{" "}
-                    <div className={styles.dateField1}>
-                      <label htmlFor="heure_entree">
-                        Heure de sortie
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <TextField
-                        disabled={absenceSurface}
-                        placeholder="Sélectionner une heure"
-                        value={
-                          heureSortie1
-                            ? dayjs(heureSortie1).format("HH:mm")
-                            : ""
-                        }
-                        onClick={handleOpenSurface2}
-                        readOnly
-                        error={errors.heureSortie1}
-                        helperText={
-                          errors.heureSortie1
-                            ? "L'heure d'entrée est requise."
-                            : ""
-                        }
-                        variant="standard"
-                        fullWidth
-                        sx={{
-                          mt: 1,
-                          mb: 2,
-                          fontFamily:
-                            " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
-
-                          width: "100%",
-                          "& .MuiInputBase-input": {
-                            padding: "8px 1px", // padding interne uniforme
-                            fontSize: "0.9rem", // ← augmente la taille du texte
-                            fontWeight: 500,
-                            "@media (max-width:600px)": {
-                              padding: "5px 0px !important", // mobile → réduit
-                            },
-                          },
-                          "& .MuiInputLabel-root": {
-                            fontFamily:
-                              "system-ui, Avenir, Helvetica, Arial, sans-serif",
-                          },
-                        }}
-                        InputLabelProps={{
-                          style: {
-                            fontSize: "1.0rem",
-                            letterSpacing: "1px",
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                edge="end"
-                                onClick={handleOpenSurface2}
-                                size="large"
-                                disabled={absenceSurface}
-                              >
-                                <i
-                                  className="fa-solid fa-sun"
-                                  style={{ fontSize: "1.0rem" }}
-                                ></i>
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                      <Dialog
-                        open={openTimeSurface2}
-                        onClose={handleCloseTimeSurface2}
-                      >
-                        <DialogContent sx={{ p: 0 }}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              backgroundColor: "#f9fafb",
-                              p: 4, // padding = 4 * 8px = 32px (comme Tailwind p-4)
-                            }}
-                          >
-                            {" "}
-                            {/* p: 0 pour que le picker prenne toute la place */}
-                            <StaticTimePicker
-                              orientation="landscape" // mode paysage
-                              ampm={false} // format 24h
-                              open={openTimeSurface2}
-                              onOpen={() => setOpenSurface2(true)}
-                              onClose={() => setOpenSurface2(false)}
-                              value={
-                                heureSortie1 ||
-                                (record?.heure_sortie_unique
-                                  ? (() => {
-                                      const [h, m] =
-                                        record.heure_sortie_unique.split(":");
-                                      return dayjs()
-                                        .hour(parseInt(h))
-                                        .minute(parseInt(m))
-                                        .second(0);
-                                    })()
-                                  : dayjs().hour(6).minute(0).second(0)) // valeur par défaut
-                              }
-                              onChange={(newValue) => setHeureSortie1(newValue)}
-                              minutesStep={5}
-                              minTime={dayjs().hour(8).minute(0).second(0)}
-                              maxTime={dayjs().hour(21).minute(0).second(0)}
-                              localeText={{
-                                toolbarTitle: "RÉGLER L'HEURE",
-                                cancelButtonLabel: "Annuler", // ← bouton Annuler en français
-                                okButtonLabel: "OK", // ← bouton OK (tu peux mettre "Valider" si tu veux)
-                              }}
-                              sx={{
-                                width: {
-                                  xs: 800, // mobile → largeur plus large
-                                  sm: 700, // tablette / desktop → encore plus large
-                                },
-                                "& .MuiPickersTimePickerToolbar-root": {
-                                  minWidth: "100%", // toolbar prend toute la largeur
-                                },
-                                "& .MuiPickersTimePicker-root, & .MuiPickersClock-root":
-                                  {
-                                    width: "100%", // horloge et picker prennent toute la largeur
-                                  },
-                              }}
-                            />
-                          </Box>
-                        </DialogContent>
-                      </Dialog>
-                    </div>{" "}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 15,
-                      fontFamily: " 'Poppins', sans-serif",
-                    }}
-                  >
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={absenceSurface}
-                          onChange={(e) => setAbsenceSurface(e.target.checked)}
-                        />
-                      }
-                      label="Absent"
-                      sx={{ fontFamily: "'Poppins', sans-serif" }}
-                    />
-                  </div>
-                </>
-              )}
-              <div className={styles.btn}>
+              <div className={m.pickerActions}>
+                <Button
+                  onClick={() => setPicker(null)}
+                  sx={{ textTransform: "none", fontSize: "0.85rem", px: 3, py: 1.2, color: "#1b6979" }}
+                >
+                  Annuler
+                </Button>
                 <Button
                   variant="contained"
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  fullWidth
-                  sx={{
-                    fontFamily: " 'Poppins', sans-serif",
-                    backgroundColor: "#14535f",
-                    fontSize: "0.9rem",
-                    mb: 1,
-                    display: "flex",
-                    gap: 2,
-                        height:43,
-                    "&.Mui-disabled": {
-                      backgroundColor: "#14535f",
-                      color: "#fff", // optionnel (texte blanc)
-                      opacity: 0.7, // optionnel (effet disabled léger)
-                    },
-                    borderRadius: "4px",
-                    justifyContent: "center",
-                    border: "none",
-                    textTransform: "none",
-                    transform: "scale(1)", // léger zoom au hover
-                    transition: "all 0.3s ease",
+                  disableElevation
+                  onClick={() => {
+                    // OK enregistre l'heure affichée, même sans modification
+                    pickerCfg.set(draft ?? pickerCfg.value);
+                    setPicker(null);
                   }}
+                  sx={{ textTransform: "none", fontSize: "0.85rem", px: 4.5, py: 1.2, backgroundColor: "#14535f" }}
                 >
-                  {loading ? (
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                         <span className={styles.loader}></span>
-                                
-                    </div>
-                  ) : (
-                    <>
-                      <i
-                        className="fa-solid fa-plus"
-                        style={{ fontSize: "1.1rem" }}
-                      ></i>
-                      <span>Sauvegarder</span>
-                    </>
-                  )}
+                  OK
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
+          )}
+        </Dialog>
+
         <BootstrapDialog
           onClose={() => setOpenMatriculeDialog(false)}
           open={openMatriculeDialog}

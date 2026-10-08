@@ -5,6 +5,7 @@ import "dayjs/locale/fr";
 import { socket } from "../../../socket"; // ⚠️ adapte le chemin selon l'emplacement réel du dossier AssuiditePerso
 import { AuthContext } from "../../../AuthContext"; // ⚠️ adapte le chemin selon l'emplacement réel du dossier AssuiditePerso
 import { createFetchWithAuth } from "./useFetchWithAuth";
+import { usePersonnelAutorisationsJour } from "../common/usePersonnelAutorisationsJour";
 
 dayjs.locale("fr");
 
@@ -351,6 +352,40 @@ export function useAssuiditePersoController() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moisAll, anneeAll, refreshKey, idpers]);
 
+  // ---- Résumé du mois en nombres entiers de matins / soirs (calculé par le serveur) ----
+  const [resume, setResume] = useState(null);
+  const [loadingResume, setLoadingResume] = useState(false);
+
+  useEffect(() => {
+    if (!idpers) return undefined;
+
+    let cancelled = false;
+    setLoadingResume(true);
+
+    fetchWithAuth(
+      `${API_URL}/api/fiches_assiduite/resume?mois=${Number(moisAll)}&annee=${anneeAll}&idpers=${idpers}&v=3`
+    )
+      .then((data) => !cancelled && setResume(data))
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        setResume(null);
+      })
+      .finally(() => !cancelled && setLoadingResume(false));
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moisAll, anneeAll, refreshKey, idpers]);
+
+  // ---- Autorisations valables aujourd'hui ----
+  const { data: autorisationsJour, loading: loadingAutorisationsJour } = usePersonnelAutorisationsJour({
+    idpers,
+    fetchWithAuth,
+    refreshKey,
+  });
+
   // ---- Rafraîchissement lié à `anchorEl` — jamais déclenché dans cette page (conservé) ----
   useEffect(() => {
     console.log("Mois", moisAll);
@@ -613,6 +648,8 @@ export function useAssuiditePersoController() {
     idpers,
     ready,
     refreshKey,
+    resume, loadingResume,
+    autorisationsJour, loadingAutorisationsJour,
 
     isMobile,
 

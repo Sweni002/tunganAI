@@ -1,27 +1,24 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { Breadcrumb } from "antd";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Link from "@mui/material/Link";
-import Typography from "@mui/material/Typography";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../AuthContext";
-import Button from "@mui/material/Button";
 
-import styles from "./conge.module.css";
+import styles from "../autorisation_sortie/sortie.module.css";
+import "../../fiches/presences/m3-expressive.css";
 import { useAutorisations } from "./hooks/useAutorisations";
 import { useFilters } from "./hooks/useFilters";
 import { useDelete } from "./hooks/useDelete";
 import { getColumns } from "./constants/columns";
-import Filters from "./components/Filters";
-import SearchBar from "./components/SearchBar";
-import DataTable from "./components/DataTable";
+import SortieFilters from "../autorisation_sortie/components/SortieFilters";
+import SortieToolbar from "../autorisation_sortie/components/SortieToolbar";
+import SortieTable from "../autorisation_sortie/components/SortieTable";
+import SortieSummary from "../autorisation_sortie/components/SortieSummary";
+import { useAbsenceStats } from "./hooks/useAbsenceStats";
 import DeleteDialog from "./components/DeleteDialog";
 import SnackbarNotification from "./components/SnackbarNotification";
 import PageHeader from "./components/PageHeader";
 
 const Autorisations = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const { fetchMe } = useContext(AuthContext);
     const [admin, setAdmin] = useState(null);
     const [searchText, setSearchText] = useState("");
@@ -44,8 +41,10 @@ const Autorisations = () => {
         pageSize,
         setPageSize,
         total,
+        filters,
         applyFilters,
         reload,
+        reloadKey,
     } = useAutorisations(admin, searchText);
 
     // Hook pour les filtres
@@ -74,6 +73,19 @@ const Autorisations = () => {
         handleConfirmDelete,
         setConfirmOpen,
     } = useDelete(reload, setSnackMessage, setSnackError, setOpenSnack);
+
+    // Thème M3 Expressive (aussi pour les menus et sélecteurs de date portalés)
+    useEffect(() => {
+        document.body.classList.add("m3x-active");
+        return () => document.body.classList.remove("m3x-active");
+    }, []);
+
+    // Statistiques serveur : filtre de dates appliqué ; refaites après chaque rechargement (ex. suppression)
+    const { stats, loading: loadingStats } = useAbsenceStats({
+        idserv: admin?.responsable?.idserv,
+        filtre: filters,
+        refreshKey: reloadKey,
+    });
 
     // Récupération de l'admin
     useEffect(() => {
@@ -119,22 +131,8 @@ const Autorisations = () => {
     // Colonnes du tableau
     const columns = getColumns(navigate, handleDeleteClick);
 
-    // Sélection des lignes
-    const rowSelection = {
-        onChange: (selectedRowKeys, selectedRows) => {
-            console.log("selectedRowKeys:", selectedRowKeys, "selectedRows:", selectedRows);
-        },
-        getCheckboxProps: (record) => ({
-            disabled: false,
-            name: record.nom,
-        }),
-    };
-
     return (
-        <div className={styles.personnels} style={{ maxWidth: "88%", margin: "0 auto" }}>
-            
-            {/* Header avec styles inline */}
-
+        <div className={styles.page}>
             <PageHeader
                 title="Autorisations"
                 subtitle="Gérez toutes les autorisations d'absence de votre équipe"
@@ -143,15 +141,15 @@ const Autorisations = () => {
                 onButtonClick={goAjout}
             />
 
+            <SortieSummary stats={stats} loading={loadingStats} />
 
-            <Filters
+            <SortieFilters
                 dateDebutFiltre={dateDebutFiltre}
                 setDateDebutFiltre={setDateDebutFiltre}
                 dateFinFiltre={dateFinFiltre}
                 setDateFinFiltre={setDateFinFiltre}
                 anchorEl={anchorEl}
                 anchorEl2={anchorEl2}
-                pickerType={pickerType}
                 handleOpenDatePicker={handleOpenDatePicker}
                 handleClosePicker={handleClosePicker}
                 handleFiltrerParDates={handleFiltrerParDates}
@@ -159,21 +157,22 @@ const Autorisations = () => {
                 idserv={admin?.responsable?.idserv}
             />
 
-            <div className={styles.cardTab} style={{ border: 'none', maxWidth: "95%" }}>
-                <SearchBar
+            <section className={styles.card} aria-label="Liste des autorisations">
+                <SortieToolbar
                     selectedDate={selectedDate}
                     setSelectedDate={setSelectedDate}
-                    handleFiltrerParDateUnique={handleFiltrerParDateUnique}
+                    onFiltrerParDate={handleFiltrerParDateUnique}
                     searchText={searchText}
                     setSearchText={setSearchText}
                     dateInputRef={dateInputRef}
+                    count={total}
                 />
 
-                <DataTable
+                <SortieTable
                     loading={loading || loadingPage}
                     columns={columns}
                     dataSource={conges.map((p) => ({ ...p, key: p.id }))}
-                    rowSelection={rowSelection}
+                    emptyLabel="Aucune autorisation d'absence à afficher"
                     pagination={{
                         position: ["bottomCenter"],
                         current: page,
@@ -188,7 +187,7 @@ const Autorisations = () => {
                         },
                     }}
                 />
-            </div>
+            </section>
 
             <DeleteDialog
                 open={confirmOpen}

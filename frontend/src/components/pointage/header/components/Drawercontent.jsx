@@ -16,6 +16,7 @@ import {
   ScrollIcon,
   UserGearIcon,
   SquaresFourIcon,
+  CalendarCheckIcon,
 } from "@phosphor-icons/react";
 import { menuItemStyle, textStyle, subItemStyle, subTextStyle } from "../Header.styles";
 import { stringAvatar } from "../Header.utils";
@@ -32,6 +33,7 @@ const DrawerContent = ({
   openAutorisaion,
   openPresences,
   openAssd,
+  openJoursFeries,
   // personnel
   openInfo,
   openHisto,
@@ -228,6 +230,17 @@ const DrawerContent = ({
             >
               <i className="fa-solid fa-chart-line" style={{ marginRight: 10, fontSize: "0.9rem" }} />
               <ListItemText primary="FICHE D'ASSIDUITÉ" primaryTypographyProps={textStyle} />
+            </ListItemButton>
+
+            <ListItemButton
+              onClick={() => {
+                openJoursFeries();
+                toggleDrawer();
+              }}
+              sx={menuItemStyle}
+            >
+              <CalendarCheckIcon size={18} weight="regular" style={{ marginRight: 10 }} />
+              <ListItemText primary="JOURS FÉRIÉS" primaryTypographyProps={textStyle} />
             </ListItemButton>
           </>
         )}

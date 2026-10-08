@@ -153,6 +153,26 @@ export const autorisationService = {
   },
 
   /**
+   * Statistiques des autorisations spéciales d'un service (calculées côté serveur)
+   * @param {number|string} idserv - L'ID du service
+   * @param {{date?: string, start?: string, end?: string, iddiv?: number}} filtre
+   * @param {function} navigate - Fonction navigate
+   * @returns {Promise<any>}
+   */
+  async getStatsSpeciales(idserv, filtre = {}, navigate) {
+    const params = new URLSearchParams();
+    Object.entries(filtre).forEach(([cle, valeur]) => {
+      if (valeur) params.set(cle, valeur);
+    });
+    const suffixe = params.toString() ? `?${params.toString()}` : "";
+    return this.fetchWithAuth(
+      `${API_URL}/api/autorisations_speciales/stats/${idserv}${suffixe}`,
+      {},
+      navigate
+    );
+  },
+
+  /**
    * Récupère les autorisations spéciales entre deux dates
    * @param {number|string} idserv - L'ID du service
    * @param {string} start - Date de début (YYYY-MM-DD)

@@ -13,7 +13,7 @@ export default function DivisionsToggleButton({ open, onToggle, hasActiveFilter 
         color: '#1b6979',
         textTransform: 'none',
         fontSize: '0.8rem',
-        fontFamily: " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+        fontFamily: " 'Poppins', 'Poppins', sans-serif",
         gap: 0.8,
         px: 1,
         '&:hover': { backgroundColor: 'rgba(27, 105, 121, 0.08)' },

@@ -96,7 +96,7 @@ const AbsenceForm = ({
             "& .MuiInputBase-input": {
               padding: "8px 1px",
               fontSize: "0.9rem",
-              fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: "'Poppins', sans-serif",
               "@media (max-width:600px)": {
                 padding: "5px 0px !important",
               },
@@ -249,7 +249,7 @@ const AbsenceForm = ({
             "& .MuiInputBase-input": {
               padding: "8px 1px",
               fontSize: "0.9rem",
-              fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+              fontFamily: "'Poppins', sans-serif",
               "@media (max-width:600px)": {
                 padding: "5px 0px !important",
               },
@@ -313,7 +313,7 @@ const AbsenceForm = ({
                 mt: 1,
                 mb: 2,
                 fontFamily:
-                  " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                  " 'Poppins', 'Poppins', sans-serif",
 
                 width: "100%",
                 "& .MuiInputBase-input": {
@@ -325,7 +325,7 @@ const AbsenceForm = ({
                   },
                 },
                 "& .MuiInputLabel-root": {
-                  fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                  fontFamily: "'Poppins', sans-serif",
                 },
               }}
               InputLabelProps={{
@@ -400,7 +400,7 @@ const AbsenceForm = ({
                   mt: 1,
                   mb: 2,
                   fontFamily:
-                    " 'Poppins', system-ui, Avenir, Helvetica, Arial, sans-serif",
+                    " 'Poppins', 'Poppins', sans-serif",
 
                   width: "100%",
                   "& .MuiInputBase-input": {
@@ -413,7 +413,7 @@ const AbsenceForm = ({
                   },
                   "& .MuiInputLabel-root": {
                     fontFamily:
-                      "system-ui, Avenir, Helvetica, Arial, sans-serif",
+                      "'Poppins', sans-serif",
                   },
                 }}
                 InputLabelProps={{
