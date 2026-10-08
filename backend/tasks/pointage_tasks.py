@@ -308,6 +308,19 @@ def do_marquer_absents_matin(jour_iso=None):
         or_(Pointage.absence_matin.is_(None), Pointage.absence_matin == False),  # noqa: E712
     ]
 
+    # Services dont le matin est férié (matin ou journée complète) : personne n'y est absent
+    from utils.jours_feries import feries_du_jour
+
+    services_feries = [i for i, f in feries_du_jour(jour).items() if f["matin"]]
+    if services_feries:
+        exclus = (
+            db.session.query(Personnels.idpers)
+            .join(Divisions, Personnels.iddiv == Divisions.iddiv)
+            .filter(Divisions.idserv.in_(services_feries))
+            .subquery()
+        )
+        non_pointe.append(Pointage.idpers.notin_(db.session.query(exclus.c.idpers)))
+
     # presence=False seulement si pas encore pointé l'après-midi
     # (évite d'écraser un pointage soir arrivé pendant la tâche)
     Pointage.query.filter(*non_pointe, Pointage.heure_entree_soir.is_(None)).update(

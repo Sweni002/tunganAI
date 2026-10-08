@@ -23,6 +23,7 @@ from unittest.mock import patch
 from sqlalchemy import func, case, select, union_all, literal
 
 from utils.background import run_in_background
+from utils.jours_feries import ferie_bloquant, ferie_pour_modification
 from utils.face_utils import (
     _detect_single_face,
     get_service_rows,
@@ -792,10 +793,24 @@ def marquer_absents_matin_non_pointes():
     db.session.commit()
 
 
+def _reponse_jour_ferie(idserv, maintenant=None, cutoff=None):
+    """Réponse 403 si le pointage est interdit maintenant (jour férié du service), sinon None."""
+    blocage = ferie_bloquant(idserv, maintenant, cutoff)
+    if not blocage:
+        return None
+    return jsonify({
+        "error": blocage["message"],
+        "code": "jour_ferie",
+        "jour_ferie": {"periode": blocage["periode"], "motif": blocage["motif"]},
+    }), 403
+
+
 def check_absents_matin(idserv):
     today = datetime.now().date()
     if datetime.now().weekday() >= 5:
        return
+    if (ferie_pour_modification(idserv, today) or {}).get("matin"):
+        return  # matin férié : pas de contrôle d'absence
     # 🔹 uniquement les personnels non-surface du service
     personnels = (
     Personnels.query.join(Divisions)
@@ -844,6 +859,8 @@ def check_absents_apres_midi(idserv):
     today = datetime.now().date()
     if datetime.now().weekday() >= 5:
        return
+    if (ferie_pour_modification(idserv, today) or {}).get("soir"):
+        return  # après-midi férié : pas de contrôle d'absence
     # Récupérer tous les personnels du service
     personnels = (
     Personnels.query.join(Divisions)
@@ -2182,6 +2199,14 @@ CPU_TIMEOUT = 10  # s
 def facial_client_step2_antispoof():
     start_global = perf_counter()
 
+    # Jour férié du service du poste (avant le contrôle du week-end)
+    mac_poste = request.form.get("mac_address")
+    info_poste = get_service_info_for_today(mac_poste) if mac_poste else None
+    if info_poste:
+        reponse_ferie = _reponse_jour_ferie(info_poste["idserv"])
+        if reponse_ferie:
+            return reponse_ferie
+
     if datetime.now().weekday() >= 5:
         return jsonify({"error": "On est weekend !"}), 400
 
@@ -2370,6 +2395,12 @@ def facial_client_step3_recognition():
     idserv = payload["idserv"]
     service_nom = payload.get("service_nom", "")
     elapsed_mac = (perf_counter() - t_mac) * 1000
+
+    # ---- Jour férié du service : refus immédiat, avant tout calcul ----
+    reponse_ferie = _reponse_jour_ferie(idserv)
+    if reponse_ferie:
+        delete_image(temp_id)
+        return reponse_ferie
 
     # ---- Employés du service (cache local de face_utils) ----
     t_allowed = perf_counter()
@@ -2678,6 +2709,11 @@ def facial_client_step4_enregistrer():
             return ctx.error("Horaires non configurés pour ce service", 500)
         ctx.tick("ctx_ms", t0)
 
+        # ---- Jour férié du service : pas de pointage ----
+        blocage_ferie = ferie_bloquant(pc.get("idserv"), now, horaires["entree_soir_debut"])
+        if blocage_ferie:
+            return ctx.error(blocage_ferie["message"], 403)
+
         # ---- Pointages vides : Celery (plus bloquant) ----
         idserv = pc.get("idserv")
         if idserv and once_per_day("pointages_vides", idserv):
@@ -2880,6 +2916,11 @@ def facial_client_sortie_step4_enregistrer():
         if not horaires:
             return ctx.error("Horaires non configurés pour ce service", 500)
         ctx.tick("ctx_ms", t0)
+
+        # ---- Jour férié du service : pas de pointage ----
+        blocage_ferie = ferie_bloquant(pc.get("idserv"), now, horaires["entree_soir_debut"])
+        if blocage_ferie:
+            return ctx.error(blocage_ferie["message"], 403)
 
         # ---- Période de sortie ----
         is_surface = pc["role"] == "surface"
@@ -3719,6 +3760,26 @@ def get_stats_service():
                     else_=0.0,
                 )
             ).label("absence_justifiee"),
+
+            # =========================
+            # COMPTEURS ENTIERS PAR DEMI-JOURNEE (matin / soir)
+            # =========================
+            func.sum(case((Pointage.heure_entree_matin.isnot(None), 1), else_=0)).label("presence_matin"),
+            func.sum(case((Pointage.heure_entree_soir.isnot(None), 1), else_=0)).label("presence_soir"),
+            func.sum(case((Pointage.retard_matin == 1, 1), else_=0)).label("retards_matin"),
+            func.sum(case((Pointage.retard_soir == 1, 1), else_=0)).label("retards_soir"),
+            func.sum(case(
+                (and_(Pointage.absence_matin == 1, Pointage.justificatif.is_(None)), 1), else_=0
+            )).label("absence_nj_matin"),
+            func.sum(case(
+                (and_(Pointage.absence_soir == 1, Pointage.justificatif.is_(None)), 1), else_=0
+            )).label("absence_nj_soir"),
+            func.sum(case(
+                (and_(Pointage.absence_matin == 1, Pointage.justificatif.isnot(None)), 1), else_=0
+            )).label("absence_j_matin"),
+            func.sum(case(
+                (and_(Pointage.absence_soir == 1, Pointage.justificatif.isnot(None)), 1), else_=0
+            )).label("absence_j_soir"),
         )
         .select_from(Personnels)
 
@@ -3820,6 +3881,20 @@ def get_stats_service():
         "absence_non_justifiee": absence_non_justifiee,
         "absence_justifiee": absence_justifiee,
         "taux_presence": taux_presence,
+
+        # Compteurs entiers : une demi-journée = 1 (jamais de virgule)
+        "matin": {
+            "presence": int(stats.presence_matin or 0),
+            "retards": int(stats.retards_matin or 0),
+            "absence_non_justifiee": int(stats.absence_nj_matin or 0),
+            "absence_justifiee": int(stats.absence_j_matin or 0),
+        },
+        "soir": {
+            "presence": int(stats.presence_soir or 0),
+            "retards": int(stats.retards_soir or 0),
+            "absence_non_justifiee": int(stats.absence_nj_soir or 0),
+            "absence_justifiee": int(stats.absence_j_soir or 0),
+        },
     }), 200
     
 
@@ -4616,6 +4691,70 @@ from flask import request, jsonify
 from datetime import datetime, time
 from sqlalchemy.exc import SQLAlchemyError
 
+
+def _hhmm(valeur):
+    """Heure normalisée « HH:MM » (ou None) pour comparer une saisie à la valeur en base."""
+    if not valeur:
+        return None
+    if isinstance(valeur, str):
+        return valeur[:5]
+    return valeur.strftime("%H:%M")
+
+
+def _periode_ferie_modifiee(pointage, data, ferie, is_surface):
+    """Vrai si la requête modifie une période FÉRIÉE du pointage (heures ou absence).
+
+    Seules les valeurs qui CHANGENT comptent : un formulaire qui renvoie les heures
+    existantes inchangées ne doit pas être refusé.
+    Retourne "matin", "soir", "journée" ou None.
+    """
+    def change(cle, actuel, booleen=False):
+        if cle not in data:
+            return False
+        if booleen:
+            return bool(data.get(cle)) != bool(actuel)
+        return _hhmm(data.get(cle)) != _hhmm(actuel)
+
+    if is_surface:
+        if ferie["matin"] and ferie["soir"] and (
+            change("heure_entree_unique", pointage.heure_entree_unique)
+            or change("heure_sortie_unique", pointage.heure_sortie_unique)
+            or change("absence_unique", pointage.absence_unique, booleen=True)
+        ):
+            return "journée"
+        return None
+
+    if ferie["matin"] and (
+        change("heure_entree_matin", pointage.heure_entree_matin)
+        or change("heure_sortie_matin", pointage.heure_sortie_matin)
+        or change("absence_matin", pointage.absence_matin, booleen=True)
+    ):
+        return "matin"
+    if ferie["soir"] and (
+        change("heure_entree_soir", pointage.heure_entree_soir)
+        or change("heure_sortie_soir", pointage.heure_sortie_soir)
+        or change("absence_soir", pointage.absence_soir, booleen=True)
+    ):
+        return "soir"
+    return None
+
+
+def _refus_jour_ferie(pointage, data, idserv, is_surface):
+    """Réponse 400 si on tente de modifier un pointage sur une période fériée du service, sinon None."""
+    ferie = ferie_pour_modification(int(idserv), pointage.date)
+    if not ferie:
+        return None
+    periode = _periode_ferie_modifiee(pointage, data, ferie, is_surface)
+    if not periode:
+        return None
+    motif = ferie.get("motif")
+    return jsonify({
+        "error": f"Jour férié{f' ({motif})' if motif else ''} : la période « {periode} » du "
+                 f"{pointage.date:%d/%m/%Y} ne peut pas être modifiée.",
+        "code": "jour_ferie",
+    }), 400
+
+
 @bp.route("/update_pointage_responsable", methods=["PUT"])
 def update_pointage_responsable_par_service():
     data = request.get_json()
@@ -4638,6 +4777,11 @@ def update_pointage_responsable_par_service():
     responsable = Responsables.query.get(personnel.idrh)
     if not responsable or responsable.idserv != int(idserv):
         return jsonify({"error": "Modification non autorisée pour ce service"}), 403
+
+    # Jour férié du service : pas de modification d'une période fériée
+    refus_ferie = _refus_jour_ferie(pointage, data, idserv, personnel.role == "surface")
+    if refus_ferie:
+        return refus_ferie
 
     # =========================
     # Horaires du service (sauf agent de surface, qui n'a pas de contrainte
@@ -4666,12 +4810,24 @@ def update_pointage_responsable_par_service():
     def dans_plage_soir(heure_saisie):
         return to_time(horaires.entree_soir_debut) <= heure_saisie < to_time(horaires.sortie_soir_debut)
 
-    def calculer_retard(heure_entree_dt, limite_fin_time):
+    def sortie_autorisee(periode, heure_saisie, debut, fin):
+        """
+        Même règle que le pointage facial : la sortie est libre dans sa plage
+        normale (sortie_*_debut -> sortie_*_fin) ; en dehors, elle n'est
+        acceptée que s'il existe une autorisation de sortie valable ce jour-là
+        pour la période (matin / apres_midi).
+        """
+        if to_time(debut) <= heure_saisie <= to_time(fin):
+            return True
+        return bool(a_autorisation_sortie(personnel.idpers, pointage.date, periode))
+
+    def calculer_retard(heure_entree_dt, limite_fin_time, periode):
         """
         Retourne (en_retard: bool, minutes: int) en comparant l'heure d'entrée
         saisie à la borne de fin de plage du service (entree_matin_fin /
         entree_soir_fin). Au-delà de cette borne -> retard, avec le nombre
-        de minutes de dépassement.
+        de minutes de dépassement, SAUF si une autorisation de retard existe
+        pour la période (comme au pointage facial).
         """
         if not heure_entree_dt:
             return False, 0
@@ -4680,6 +4836,8 @@ def update_pointage_responsable_par_service():
         delta_minutes = int((heure_entree_dt - heure_limite_dt).total_seconds() / 60)
 
         if delta_minutes > 0:
+            if a_autorisation_retard(personnel.idpers, pointage.date, periode):
+                return False, 0
             return True, delta_minutes
         return False, 0
 
@@ -4695,8 +4853,17 @@ def update_pointage_responsable_par_service():
 
         if "heure_sortie_matin" in data:
             sortie_matin_dt = parse_time(data.get("heure_sortie_matin"))
-            if sortie_matin_dt and not is_surface and not dans_plage_matin(sortie_matin_dt.time()):
-                return jsonify({"error": "Heure de sortie matin hors des plages horaires du service"}), 400
+            if (
+                sortie_matin_dt
+                and not is_surface
+                and not sortie_autorisee(
+                    "matin", sortie_matin_dt.time(),
+                    horaires.sortie_matin_debut, horaires.sortie_matin_fin,
+                )
+            ):
+                return jsonify({
+                    "error": "Heure de sortie matin hors de la plage du service et sans autorisation de sortie"
+                }), 400
             pointage.heure_sortie_matin = sortie_matin_dt
 
         if "heure_entree_soir" in data:
@@ -4707,8 +4874,17 @@ def update_pointage_responsable_par_service():
 
         if "heure_sortie_soir" in data:
             sortie_soir_dt = parse_time(data.get("heure_sortie_soir"))
-            if sortie_soir_dt and not is_surface and not dans_plage_soir(sortie_soir_dt.time()):
-                return jsonify({"error": "Heure de sortie soir hors des plages horaires du service"}), 400
+            if (
+                sortie_soir_dt
+                and not is_surface
+                and not sortie_autorisee(
+                    "apres_midi", sortie_soir_dt.time(),
+                    horaires.sortie_soir_debut, horaires.sortie_soir_fin,
+                )
+            ):
+                return jsonify({
+                    "error": "Heure de sortie après-midi hors de la plage du service et sans autorisation de sortie"
+                }), 400
             pointage.heure_sortie_soir = sortie_soir_dt
 
         # =========================
@@ -4716,9 +4892,8 @@ def update_pointage_responsable_par_service():
         # =========================
         if "absence_matin" in data:
             if data["absence_matin"]:
+                # Les heures déjà pointées sont CONSERVÉES (ex. entrée 8h00 sans sortie)
                 pointage.absence_matin = True
-                pointage.heure_entree_matin = None
-                pointage.heure_sortie_matin = None
                 pointage.retard_matin = False
                 pointage.retard_matin_minutes = 0
             else:
@@ -4732,8 +4907,6 @@ def update_pointage_responsable_par_service():
         if "absence_soir" in data:
             if data["absence_soir"]:
                 pointage.absence_soir = True
-                pointage.heure_entree_soir = None
-                pointage.heure_sortie_soir = None
                 pointage.retard_soir = False
                 pointage.retard_soir_minutes = 0
             else:
@@ -4747,12 +4920,12 @@ def update_pointage_responsable_par_service():
         # =========================
         # VALIDATIONS
         # =========================
-        if pointage.heure_entree_matin and pointage.heure_sortie_matin:
+        if pointage.heure_entree_matin and pointage.heure_sortie_matin and not data.get("absence_matin"):
             pointage.absence_matin = False
             if pointage.heure_sortie_matin < pointage.heure_entree_matin:
                 return jsonify({"error": "Sortie matin < entrée matin"}), 400
 
-        if pointage.heure_entree_soir and pointage.heure_sortie_soir:
+        if pointage.heure_entree_soir and pointage.heure_sortie_soir and not data.get("absence_soir"):
             pointage.absence_soir = False
             if pointage.heure_sortie_soir < pointage.heure_entree_soir:
                 return jsonify({"error": "Sortie soir < entrée soir"}), 400
@@ -4762,7 +4935,7 @@ def update_pointage_responsable_par_service():
         # =========================
         if pointage.heure_entree_matin and not pointage.absence_matin and not is_surface:
             pointage.retard_matin, pointage.retard_matin_minutes = calculer_retard(
-                pointage.heure_entree_matin, horaires.entree_matin_fin
+                pointage.heure_entree_matin, horaires.entree_matin_fin, "matin"
             )
         else:
             pointage.retard_matin = False
@@ -4770,7 +4943,7 @@ def update_pointage_responsable_par_service():
 
         if pointage.heure_entree_soir and not pointage.absence_soir and not is_surface:
             pointage.retard_soir, pointage.retard_soir_minutes = calculer_retard(
-                pointage.heure_entree_soir, horaires.entree_soir_fin
+                pointage.heure_entree_soir, horaires.entree_soir_fin, "apres_midi"
             )
         else:
             pointage.retard_soir = False
@@ -4827,6 +5000,11 @@ def update_pointage_unique_par_service():
     if not responsable or responsable.idserv != int(idserv):
         return jsonify({"error": "Modification non autorisée pour ce service"}), 403
 
+    # Jour férié du service (journée complète) : pas de modification
+    refus_ferie = _refus_jour_ferie(pointage, data, idserv, True)
+    if refus_ferie:
+        return refus_ferie
+
     def parse_time(value):
         if value is None:
             return None
@@ -4852,9 +5030,8 @@ def update_pointage_unique_par_service():
         # =========================
         if "absence_unique" in data:
             if data["absence_unique"]:
+                # Les heures déjà pointées sont conservées
                 pointage.absence_unique = True
-                pointage.heure_entree_unique = None
-                pointage.heure_sortie_unique = None
                 pointage.presence = False
             else:
                 pointage.absence_unique = False

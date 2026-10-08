@@ -9,6 +9,7 @@ from models import db, Pointage, Personnels, AutorisationAbsence, Divisions
 from models.conge import Conge
 from models.horaire import HorairesService
 from __init__ import socketio
+from utils.jours_feries import feries_du_jour
 
 
 # ============================================================
@@ -57,6 +58,15 @@ def _deadline_for(horaires_map, perso, field, fallback):
         return fallback
     horaire = horaires_map.get(service.idserv)
     return _horaire_time(horaire, field, fallback)
+
+
+def _ferie_de(feries, perso):
+    """Jours fériés du jour pour le service du personnel : {"matin": bool, "soir": bool} (vide si aucun)."""
+    division = perso.division
+    service = division.service if division is not None else None
+    if service is None:
+        return {}
+    return feries.get(service.idserv, {})
 
 
 # ============================================================
@@ -139,6 +149,9 @@ def check_absents_matin():
     # Chargement unique des horaires + personnels (avec division + service)
     horaires_map = _preload_horaires()
 
+    # Jours fériés du jour par service : pas de contrôle d'absence sur une période fériée
+    feries = feries_du_jour(today)
+
     personnels = (
         Personnels.query
         .options(joinedload(Personnels.division).joinedload(Divisions.service))
@@ -147,6 +160,9 @@ def check_absents_matin():
     )
 
     for perso in personnels:
+        if _ferie_de(feries, perso).get("matin"):
+            continue  # matin férié (ou journée complète) : jamais absent
+
         # ⏱ Fin de la fenêtre de sortie matin DU SERVICE de l'employé.
         # Tant qu'on n'y est pas, la matinée n'est pas terminée pour lui :
         # sa sortie peut encore arriver.
@@ -200,6 +216,7 @@ def check_absents_soir():
     creer_pointages_vides()
 
     horaires_map = _preload_horaires()
+    feries = feries_du_jour(today)
 
     # ---------- 1) Employés standard (matin / soir) ----------
     personnels_std = (
@@ -210,6 +227,9 @@ def check_absents_soir():
     )
 
     for perso in personnels_std:
+        if _ferie_de(feries, perso).get("soir"):
+            continue  # après-midi férié (ou journée complète) : jamais absent
+
         # ⏱ Fin de la fenêtre de sortie soir du service
         deadline = _deadline_for(
             horaires_map, perso, "sortie_soir_fin", time(18, 0)
@@ -251,6 +271,10 @@ def check_absents_soir():
     )
 
     for perso in personnels_surface:
+        ferie = _ferie_de(feries, perso)
+        if ferie.get("matin") and ferie.get("soir"):
+            continue  # journée entièrement fériée
+
         # Pour un agent surface, la « fin de journée » = sortie soir du service
         deadline = _deadline_for(
             horaires_map, perso, "sortie_soir_fin", time(18, 0)

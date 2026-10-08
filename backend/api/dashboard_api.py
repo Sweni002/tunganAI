@@ -161,6 +161,12 @@ def _totaux(idserv, debut, fin, iddiv, role):
             if float(presence)
             else None
         ),
+        # Part des présences avec retard (= 100 - ponctualité) et part des jours attendus
+        # en absence non justifiée : mêmes dénominateurs que la présence et la ponctualité
+        "taux_retard": (
+            round(100.0 * min(float(retards) / float(presence), 1), 1) if float(presence) else None
+        ),
+        "taux_absences_non_justifiees": _taux(float(abs_nj), attendus),
     }
 
 
@@ -231,6 +237,17 @@ def overview():
         "taux_ponctualite": (
             round(actuel["taux_ponctualite"] - precedent["taux_ponctualite"], 1)
             if actuel["taux_ponctualite"] is not None and precedent["taux_ponctualite"] is not None
+            else None
+        ),
+        "taux_retard": (
+            round(actuel["taux_retard"] - precedent["taux_retard"], 1)
+            if actuel["taux_retard"] is not None and precedent["taux_retard"] is not None
+            else None
+        ),
+        "taux_absences_non_justifiees": (
+            round(actuel["taux_absences_non_justifiees"] - precedent["taux_absences_non_justifiees"], 1)
+            if actuel["taux_absences_non_justifiees"] is not None
+            and precedent["taux_absences_non_justifiees"] is not None
             else None
         ),
     }

@@ -28,7 +28,13 @@ class AutorisationAbsence(db.Model):
     pointages = relationship("Pointage", back_populates="autorisation")
 
     def to_dict(self):
-        etat = "terminée" if self.date_absence < date.today() else "en cours"
+        aujourdhui = date.today()
+        if self.date_absence < aujourdhui:
+            etat = "terminée"
+        elif self.date_absence > aujourdhui:
+            etat = "à venir"
+        else:
+            etat = "en cours"
         return {
             "id": self.id,
             "date_absence": self.date_absence.isoformat(),

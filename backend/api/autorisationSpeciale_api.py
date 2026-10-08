@@ -5,11 +5,11 @@ from models import (
     Personnels,
     AutorisationSpeciale,
     TypeAutorisation,
-    PeriodeAutorisation,Divisions,Services
+    PeriodeAutorisation,Divisions,Services,Responsables
 )
 from models import db
 from werkzeug.security import check_password_hash
-from datetime import datetime
+from datetime import date, datetime
 
 bp = Blueprint("autorisation_speciale", __name__)
 
@@ -146,20 +146,47 @@ def create_autorisation_speciale():
         }), 500
 
 
+def _couvre(a, jour):
+    return a.date_debut <= jour <= (a.date_fin or a.date_debut)
+
+
+def _etat_autorisation(a, aujourdhui, pointage_du_jour=None):
+    """État d'une autorisation d'après ses dates.
+
+      - dernier jour dépassé          -> terminée
+      - premier jour pas encore venu  -> à venir
+      - sinon (aujourd'hui compris)   -> en cours, ou terminée si la sortie
+        autorisée a déjà été pointée aujourd'hui (pointage_du_jour).
+    """
+    debut = a.date_debut
+    fin = a.date_fin or a.date_debut
+
+    if fin < aujourdhui:
+        return "terminée"
+    if debut > aujourdhui:
+        return "à venir"
+
+    if pointage_du_jour:
+        if a.periode == PeriodeAutorisation.matin and pointage_du_jour.heure_sortie_matin is not None:
+            return "terminée"
+        if a.periode == PeriodeAutorisation.apres_midi and pointage_du_jour.heure_sortie_soir is not None:
+            return "terminée"
+    return "en cours"
+
+
 def _serialiser_autorisation(a):
     """Format unique renvoyé par les trois routes de liste (service / plage / jour).
 
     Le champ `etat` était absent des filtres par dates : la colonne « État » du
     tableau restait vide après un filtrage.
     """
-    pointage = Pointage.query.filter_by(idpers=a.idpers, autorisationsortie_id=a.id).first()
-
-    terminee = False
-    if pointage:
-        if a.periode == PeriodeAutorisation.matin:
-            terminee = pointage.heure_sortie_matin is not None
-        elif a.periode == PeriodeAutorisation.apres_midi:
-            terminee = pointage.heure_sortie_soir is not None
+    aujourdhui = date.today()
+    pointage = None
+    if _couvre(a, aujourdhui):
+        pointage = Pointage.query.filter_by(
+            idpers=a.idpers, autorisationsortie_id=a.id, date=aujourdhui
+        ).first()
+    etat = _etat_autorisation(a, aujourdhui, pointage)
 
     return {
         "id": a.id,
@@ -169,7 +196,7 @@ def _serialiser_autorisation(a):
         "is_single_day": a.is_single_day,
         "date_debut": a.date_debut.isoformat() if a.date_debut else None,
         "date_fin": a.date_fin.isoformat() if a.date_fin else None,
-        "etat": "terminée" if terminee else "en cours",
+        "etat": etat,
         "personnel": {
             "idpers": a.idpers,
             "nom": a.personnel.nom if a.personnel else None,
@@ -302,6 +329,108 @@ def get_autorisations_by_date(idserv):
         return jsonify({"success": False, "error": str(e)}), 500
 
         
+@bp.route("/stats/<int:idserv>", methods=["GET"])
+def get_stats_autorisations(idserv):
+    """Statistiques des autorisations de sortie d'UN service.
+
+    Paramètres (optionnels, mêmes règles que les routes de liste) :
+      - date            : un jour précis (YYYY-MM-DD)
+      - start et end    : une plage de dates (YYYY-MM-DD)
+      - iddiv           : limiter à une division
+    Sans date, toutes les autorisations du service sont comptées.
+
+    Réponse : total, répartition par état (en cours / à venir / terminées),
+    par période (matin / après-midi), par type (sortie / retard) et nombre
+    d'agents autorisés aujourd'hui.
+    """
+    try:
+        # Un responsable ne consulte que SON service
+        if session.get("role") == "responsable":
+            responsable = Responsables.query.get(session.get("responsable_id"))
+            if not responsable or responsable.idserv != idserv:
+                return jsonify({"success": False, "error": "Accès refusé à ce service"}), 403
+
+        date_str = request.args.get("date")
+        start = request.args.get("start")
+        end = request.args.get("end")
+        iddiv = request.args.get("iddiv", type=int)
+
+        query = (
+            db.session.query(AutorisationSpeciale)
+            .join(Personnels, AutorisationSpeciale.idpers == Personnels.idpers)
+            .join(Divisions, Personnels.iddiv == Divisions.iddiv)
+            .filter(Divisions.idserv == idserv)
+        )
+        if iddiv:
+            query = query.filter(Personnels.iddiv == iddiv)
+
+        if date_str:
+            jour = datetime.strptime(date_str, "%Y-%m-%d").date()
+            query = query.filter(
+                AutorisationSpeciale.date_debut <= jour,
+                or_(AutorisationSpeciale.date_fin.is_(None), AutorisationSpeciale.date_fin >= jour),
+            )
+        elif start or end:
+            if not start or not end:
+                return jsonify({"success": False, "error": "start et end sont requis ensemble"}), 400
+            debut = datetime.strptime(start, "%Y-%m-%d").date()
+            fin = datetime.strptime(end, "%Y-%m-%d").date()
+            query = query.filter(
+                AutorisationSpeciale.date_debut <= fin,
+                or_(AutorisationSpeciale.date_fin.is_(None), AutorisationSpeciale.date_fin >= debut),
+            )
+
+        autorisations = query.all()
+
+        # Pointages du jour liés à ces autorisations : UNE requête (pas une par ligne)
+        aujourdhui = date.today()
+        ids_du_jour = [a.id for a in autorisations if _couvre(a, aujourdhui)]
+        pointages_du_jour = {}
+        if ids_du_jour:
+            for lot in range(0, len(ids_du_jour), 900):  # limite d'un IN Oracle
+                for p in Pointage.query.filter(
+                    Pointage.date == aujourdhui,
+                    Pointage.autorisationsortie_id.in_(ids_du_jour[lot:lot + 900]),
+                ).all():
+                    pointages_du_jour[p.autorisationsortie_id] = p
+
+        etats = {"en_cours": 0, "a_venir": 0, "terminees": 0}
+        periodes = {"matin": 0, "apres_midi": 0}
+        types = {"sortie": 0, "retard": 0}
+        agents_aujourdhui = set()
+
+        for a in autorisations:
+            etat = _etat_autorisation(a, aujourdhui, pointages_du_jour.get(a.id))
+            if etat == "terminée":
+                etats["terminees"] += 1
+            elif etat == "à venir":
+                etats["a_venir"] += 1
+            else:
+                etats["en_cours"] += 1
+
+            if a.periode:
+                periodes[a.periode.value] = periodes.get(a.periode.value, 0) + 1
+            if a.type_autorisation:
+                types[a.type_autorisation.value] = types.get(a.type_autorisation.value, 0) + 1
+            if _couvre(a, aujourdhui):
+                agents_aujourdhui.add(a.idpers)
+
+        return jsonify({
+            "success": True,
+            "idserv": idserv,
+            "total": len(autorisations),
+            "etats": etats,
+            "periodes": periodes,
+            "types": types,
+            "agents_autorises_aujourdhui": len(agents_aujourdhui),
+        }), 200
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Date invalide, format attendu YYYY-MM-DD"}), 400
+    except Exception as e:
+        return jsonify({"success": False, "error": "Erreur serveur", "details": str(e)}), 500
+
+
 @bp.route("/<int:id>", methods=["DELETE"])
 def delete_autorisation_speciale(id):
     try:

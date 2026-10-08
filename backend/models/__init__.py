@@ -21,5 +21,6 @@ from .AutorisationSpeciale import (
     PeriodeAutorisation,
 )
 from .mac_non_autorisees import MacNonAutorisee
+from .jourFerie import JourFerie
 
 from .journalPointage import JournalTentativePointage
