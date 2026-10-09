@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app 
 from models import Personnels ,db
 
-from models import Divisions ,Responsables
+from models import Divisions ,Responsables ,Services
 import uuid
 import base64
 import os
@@ -299,35 +299,93 @@ def update_responsable(idrh):
 
 @bp.route("/<int:idrh>", methods=["DELETE"])
 def delete_responsables(idrh):
+    """Suppression d'un responsable.
+
+    - Il reste un AUTRE responsable dans le service : les personnels du responsable supprimé lui sont
+      rattachés (le premier autre responsable, ou `nouveau_rh` dans le corps JSON) ; personne n'est supprimé.
+    - C'est le DERNIER responsable du service : refusé (409, code « dernier_rh ») tant que
+      `confirmer_suppression_personnels` n'est pas vrai ; confirmé, tous les personnels du service sont
+      supprimés avec leurs pointages.
+    """
     responsables = Responsables.query.get_or_404(idrh)
+    data = request.get_json(silent=True) or {}
+    confirmer = bool(data.get("confirmer_suppression_personnels"))
 
     try:
         root_project = os.path.abspath(os.path.join(current_app.root_path, ".."))
         face_db_dir_personnel = os.path.join(root_project, "face_db1")
 
-        # 🔍 Vérifier s'il reste d'autres responsables dans ce service
-        autres_rh = Responsables.query.filter(
-            Responsables.idserv == responsables.idserv, Responsables.idrh != idrh
-        ).count()
+        # Autres responsables du même service
+        autres_rh = (
+            Responsables.query.filter(
+                Responsables.idserv == responsables.idserv, Responsables.idrh != idrh
+            )
+            .order_by(Responsables.idrh)
+            .all()
+        )
 
-        # 🔥 Supprimer tous les personnels du service seulement s'il n'y a plus de RH
-        if autres_rh == 0:
-            # Tous les personnels liés au service via leur division
+        rattaches = Personnels.query.filter(Personnels.idrh == idrh).count()
+        message = "Responsable supprimé avec succès"
+        reponse_extra = {}
+
+        if autres_rh:
+            # ---- Rattacher les personnels à un autre responsable AVANT de supprimer ----
+            cible = autres_rh[0]
+            if data.get("nouveau_rh") is not None:
+                cible = next((r for r in autres_rh if r.idrh == int(data["nouveau_rh"])), None)
+                if cible is None:
+                    return jsonify({"error": "nouveau_rh doit être un autre responsable du même service"}), 400
+
+            if rattaches:
+                Personnels.query.filter(Personnels.idrh == idrh).update(
+                    {Personnels.idrh: cible.idrh}, synchronize_session=False
+                )
+                db.session.expire_all()
+                message = (
+                    f"Responsable supprimé. {rattaches} personnel{'s' if rattaches > 1 else ''} "
+                    f"rattaché{'s' if rattaches > 1 else ''} à {cible.prenom} {cible.nom}."
+                )
+            reponse_extra = {
+                "personnels_rattaches": rattaches,
+                "nouveau_rh": {"idrh": cible.idrh, "nom": f"{cible.prenom} {cible.nom}"},
+            }
+
+        else:
+            # ---- Dernier responsable du service : suppression des personnels, sur confirmation ----
             personnels = (
                 Personnels.query.join(Divisions)
                 .filter(Divisions.idserv == responsables.idserv)
                 .all()
             )
 
+            if personnels and not confirmer:
+                service = Services.query.get(responsables.idserv)
+                n = len(personnels)
+                return jsonify({
+                    "error": (
+                        f"{responsables.prenom} {responsables.nom} est le dernier responsable du service "
+                        f"{service.nom if service else ''}. Le supprimer supprimerait aussi "
+                        f"{'le personnel' if n == 1 else f'les {n} personnels'} du service."
+                    ),
+                    "code": "dernier_rh",
+                    "nb_personnels": n,
+                    "service": service.nom if service else None,
+                }), 409
+
             for pers in personnels:
                 # Supprimer image de reconnaissance faciale
-                pers_image_path = os.path.join(
-                    face_db_dir_personnel, f"{pers.idpers}.jpg"
-                )
+                pers_image_path = os.path.join(face_db_dir_personnel, f"{pers.idpers}.jpg")
                 if os.path.exists(pers_image_path):
                     os.remove(pers_image_path)
 
                 db.session.delete(pers)
+
+            if personnels:
+                message = (
+                    f"Responsable supprimé avec {len(personnels)} personnel"
+                    f"{'s' if len(personnels) > 1 else ''} du service."
+                )
+            reponse_extra = {"personnels_supprimes": len(personnels)}
 
         # 🔥 Supprimer l'image du responsable
         if responsables.image:
@@ -350,7 +408,7 @@ def delete_responsables(idrh):
         preload_embeddings_threadsafe()
         socketio.emit("personnel_update")
 
-        return jsonify({"message": "Responsable supprimé avec succès"}), 200
+        return jsonify({"message": message, **reponse_extra}), 200
 
     except Exception as e:
         db.session.rollback()

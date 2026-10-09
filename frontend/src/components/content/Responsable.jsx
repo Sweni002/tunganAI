@@ -56,6 +56,8 @@ const [snackError, setSnackError] = useState(false);
 const [openSnack, setOpenSnack] = useState(false);
 const [confirmOpen, setConfirmOpen] = useState(false);
 const [recordToDelete, setRecordToDelete] = useState(null);
+// Dernier responsable d'un service : suppression des personnels à confirmer explicitement
+const [dernierRh, setDernierRh] = useState(null); // { record, message, nb }
 
   const [selectionType] = useState('checkbox');
   const [menuAnchor, setMenuAnchor] = useState(null);
@@ -170,37 +172,56 @@ const handleDeleteClick = (record) => {
   setConfirmOpen(true);
 };
 
-const handleConfirmDelete = () => {
+const supprimerResponsable = async (record, confirmerPersonnels = false) => {
     setLoadingSupp(true);
-
-    if (!recordToDelete) {
-      setLoadingSupp(false);
-      return;
-    }
-console.log(recordToDelete.idrh)
-    fetchWithAuth(`${API_URL}/api/responsables/${recordToDelete.idrh}`, {
-      method: 'DELETE',
-    })
-      .then(() => {
-        setSnackMessage("Responsable supprimé avec succès");
-        setSnackError(false);
-        setOpenSnack(true);
-        setPersonnels((prev) => prev.filter(p => p.idrh !== recordToDelete.idrh));
-      })
-      .catch((err) => {
-        console.error("Erreur suppression :", err);
-        setSnackMessage(err.message || "Erreur inconnue");
-        setSnackError(true);
-        setOpenSnack(true);
-      })
-      .finally(() => {
-        setConfirmOpen(false);
-        setRecordToDelete(null);
-        setLoadingSupp(false);
+    try {
+      const response = await fetch(`${API_URL}/api/responsables/${record.idrh}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmer_suppression_personnels: confirmerPersonnels }),
       });
+
+      if (response.status === 401) {
+        navigate('/login');
+        return;
+      }
+
+      const data = await response.json().catch(() => ({}));
+
+      // Dernier responsable du service : on demande confirmation avant de supprimer ses personnels
+      if (response.status === 409 && data.code === 'dernier_rh') {
+        setConfirmOpen(false);
+        setDernierRh({ record, message: data.error, nb: data.nb_personnels });
+        return;
+      }
+
+      if (!response.ok) throw new Error(data.error || 'Erreur inconnue');
+
+      setSnackMessage(data.message || 'Responsable supprimé avec succès');
+      setSnackError(false);
+      setOpenSnack(true);
+      setPersonnels((prev) => prev.filter((p) => p.idrh !== record.idrh));
+      setConfirmOpen(false);
+      setDernierRh(null);
+      setRecordToDelete(null);
+    } catch (err) {
+      console.error('Erreur suppression :', err);
+      setSnackMessage(err.message || 'Erreur inconnue');
+      setSnackError(true);
+      setOpenSnack(true);
+      setConfirmOpen(false);
+      setDernierRh(null);
+      setRecordToDelete(null);
+    } finally {
+      setLoadingSupp(false);
+    }
   };
 
-
+const handleConfirmDelete = () => {
+    if (!recordToDelete) return;
+    supprimerResponsable(recordToDelete, false);
+  };
 
   const handleMenuClick = (event, record) => {
     setMenuAnchor(event.currentTarget);
@@ -538,6 +559,46 @@ const columns = [
           </div>
         </div>
       </BootstrapDialog>
+
+      {/* ---------- Dernier responsable du service : confirmation renforcée ---------- */}
+      <Dialog
+        open={Boolean(dernierRh)}
+        onClose={loadingSupp ? undefined : () => setDernierRh(null)}
+        maxWidth="xs"
+        fullWidth
+        aria-labelledby="dernier-rh-titre"
+        slotProps={{ paper: { sx: { borderRadius: '28px', p: 1 } } }}
+      >
+        <DialogTitle id="dernier-rh-titre" sx={{ fontSize: '1rem', fontWeight: 700, color: '#9e192b' }}>
+          Dernier responsable du service
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '0.85rem', color: '#44545a', lineHeight: 1.7 }}>
+            {dernierRh?.message}
+          </Typography>
+          <Typography sx={{ fontSize: '0.85rem', color: '#9e192b', fontWeight: 600, mt: 2 }}>
+            Cette action supprime définitivement ces personnels, leurs photos et leurs pointages.
+          </Typography>
+          <Typography sx={{ fontSize: '0.8rem', color: '#676767', mt: 2 }}>
+            Pour les conserver, ajoutez d'abord un autre responsable à ce service.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setDernierRh(null)} disabled={loadingSupp} sx={{ textTransform: 'none' }}>
+            Annuler
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disableElevation
+            disabled={loadingSupp}
+            onClick={() => supprimerResponsable(dernierRh.record, true)}
+            sx={{ textTransform: 'none' }}
+          >
+            {loadingSupp ? <Spin size="small" /> : `Supprimer le responsable et ${dernierRh?.nb ?? ''} personnel(s)`}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
